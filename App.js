@@ -28,7 +28,7 @@ function WakeBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: "absolute", top: 52, alignSelf: "center", flexDirection: "row", alignItems: "center",
+    position: "absolute", bottom: 40, alignSelf: "center", flexDirection: "row", alignItems: "center",
     gap: 8, backgroundColor: "#FFFBF3", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
     borderWidth: 1, borderColor: "#D6C9B0", zIndex: 10, elevation: 6,
   },

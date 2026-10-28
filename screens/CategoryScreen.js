@@ -1,11 +1,13 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  Alert, Animated, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Image, Pressable, RefreshControl, StyleSheet, Text, TextInput, View,
 } from "react-native";
+import ReAnimated, { useAnimatedRef } from "react-native-reanimated";
+import Sortable from "react-native-sortables";
 import { API, COLORS } from "../config";
-import Texture from "../components/Texture";
 import { authFetch } from "../api";
+import Texture from "../components/Texture";
 
 function DishTile({ dish, rank, letter, hero, onOpen }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +22,7 @@ function DishTile({ dish, rank, letter, hero, onOpen }) {
 
   const slide = anim.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
   const price = dish.price ? `₹${Number(dish.price)}` : "";
+  const label = [dish.name, hero ? price : ""].filter(Boolean).join(" · ");
 
   return (
     <Pressable
@@ -37,17 +40,13 @@ function DishTile({ dish, rank, letter, hero, onOpen }) {
       </View>
       <View style={styles.band}>
         <Text style={styles.dishName} numberOfLines={1}>{dish.restaurant}</Text>
-        {dish.name || (hero && price) ? (
-          <Text style={styles.restaurant} numberOfLines={1}>
-            {[dish.name, hero ? price : ""].filter(Boolean).join(" · ")}
-          </Text>
-        ) : null}
+        {label ? <Text style={styles.restaurant} numberOfLines={1}>{label}</Text> : null}
       </View>
       <Animated.View
         pointerEvents={open ? "auto" : "none"}
         style={[styles.pop, { transform: [{ translateY: slide }] }]}
       >
-        <Text style={styles.note} numberOfLines={2}>{dish.note || "No note yet"}</Text>
+        <Text style={styles.note} numberOfLines={3}>{dish.note || "No note yet"}</Text>
         {!hero && price ? <Text style={styles.popPrice}>{price}</Text> : null}
         <Pressable
           style={styles.arrow}
@@ -60,6 +59,37 @@ function DishTile({ dish, rank, letter, hero, onOpen }) {
   );
 }
 
+function RankRow({ dish, rank, letter }) {
+  const label = [dish.name, dish.price ? `₹${Number(dish.price)}` : ""].filter(Boolean).join(" · ");
+  return (
+    <View style={styles.rankRow}>
+      <Text style={styles.rankNum}>{rank}</Text>
+      {dish.photo ? (
+        <Image source={{ uri: dish.photo }} style={styles.rankThumb} />
+      ) : (
+        <View style={[styles.rankThumb, styles.rankLetterBox, { backgroundColor: COLORS[dish.id % COLORS.length] }]}>
+          <Text style={styles.rankLetter}>{letter}</Text>
+        </View>
+      )}
+      <View style={styles.rankText}>
+        <Text style={styles.rankName} numberOfLines={1}>{dish.restaurant}</Text>
+        {label ? <Text style={styles.rankLabel} numberOfLines={1}>{label}</Text> : null}
+      </View>
+      <Text style={styles.handle}>≡</Text>
+    </View>
+  );
+}
+
+function findMoved(before, after) {
+  for (const d of before) {
+    const a = before.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
+    const b = after.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
+    const newIndex = after.findIndex((x) => x.id === d.id);
+    if (a === b && before.indexOf(d) !== newIndex) return { dish: d, position: newIndex };
+  }
+  return null;
+}
+
 export default function CategoryScreen({ route, navigation }) {
   const { category } = route.params;
   const [name, setName] = useState(category.name);
@@ -68,8 +98,9 @@ export default function CategoryScreen({ route, navigation }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(category.name);
   const [nameError, setNameError] = useState("");
-
   const [refreshing, setRefreshing] = useState(false);
+  const [rearranging, setRearranging] = useState(false);
+  const scrollRef = useAnimatedRef();
 
   function loadDishes() {
     return authFetch(`${API}/dishes/?category=${category.id}`)
@@ -99,19 +130,45 @@ export default function CategoryScreen({ route, navigation }) {
     }
   }
 
+  async function onDragEnd(data) {
+    const moved = findMoved(dishes, data);
+    if (!moved) return;
+    setDishes(data);
+    try {
+      const res = await authFetch(`${API}/dishes/${moved.dish.id}/move/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position: moved.position }),
+      });
+      if (!res.ok) throw new Error("bad response");
+    } catch {
+      setError("Could not save the new order");
+      loadDishes();
+    }
+  }
+
+  function toggleRearrange() {
+    if (rearranging) loadDishes();
+    setRearranging(!rearranging);
+  }
+
   const letter = name.charAt(0).toUpperCase();
 
   return (
     <View style={styles.screen}>
       <Texture />
-      <ScrollView contentContainerStyle={styles.page}
+      <ReAnimated.ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.page}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            tintColor="#D9774F"
-            colors={["#D9774F"]}
-            onRefresh={() => { setRefreshing(true); loadDishes().finally(() => setRefreshing(false)); }}
-          />
+          rearranging ? undefined : (
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor="#D9774F"
+              colors={["#D9774F"]}
+              onRefresh={() => { setRefreshing(true); loadDishes().finally(() => setRefreshing(false)); }}
+            />
+          )
         }
       >
         <Pressable onPress={() => navigation.goBack()}>
@@ -125,8 +182,8 @@ export default function CategoryScreen({ route, navigation }) {
               value={draft}
               onChangeText={(t) => { setDraft(t); setNameError(""); }}
               autoFocus
+              autoCapitalize="words"
               onSubmitEditing={saveName}
-              autoCapitalize="word"
             />
             {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
             <View style={styles.row}>
@@ -147,37 +204,89 @@ export default function CategoryScreen({ route, navigation }) {
             </Pressable>
           </View>
         )}
-        <Text style={styles.sub}>
-          {dishes.length} {dishes.length === 1 ? "dish" : "dishes"}
-        </Text>
+
+        <View style={styles.subRow}>
+          <Text style={styles.sub}>
+            {dishes.length} {dishes.length === 1 ? "dish" : "dishes"}
+          </Text>
+          {dishes.length > 1 ? (
+            <Pressable
+              onPress={toggleRearrange}
+              hitSlop={10}
+              android_ripple={{ color: '#00000020' }}
+              style={({ pressed }) => ({
+                alignSelf: 'flex-start',
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                backgroundColor: '#FFFBF3',
+                borderWidth: 1,
+                borderColor: '#00000015',
+                overflow: 'hidden', // keeps the ripple inside the rounded shape
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.96 : 1 }],
+              })}
+            >
+              <Text style={styles.rearrange}>{rearranging ? "Done" : "Rearrange"}</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {dishes.length === 0 && !error ? (
           <Text style={styles.empty}>No dishes yet. Tap + Add dish to add your first.</Text>
         ) : null}
 
-        {dishes[0] ? (
-          <DishTile
-            dish={dishes[0]} rank={1} letter={letter} hero
-            onOpen={() => navigation.navigate("Detail", { id: dishes[0].id })}
-          />
-        ) : null}
-        <View style={styles.grid}>
-          {dishes.slice(1).map((d, i) => (
-            <DishTile
-              key={d.id} dish={d} rank={i + 2} letter={letter}
-              onOpen={() => navigation.navigate("Detail", { id: d.id })}
+        {rearranging ? (
+          <>
+            <Text style={styles.hint}>Hold a dish, then drag it to a new spot</Text>
+            <Sortable.Grid
+              columns={1}
+              data={dishes}
+              rowGap={8}
+              enableActiveItemSnap={false}
+              //overDrag="vertical"
+              activeItemScale={1.02}
+              keyExtractor={(d) => String(d.id)}
+              scrollableRef={scrollRef}
+              onDragEnd={({ data }) => onDragEnd(data)}
+              renderItem={({ item }) => (
+                <RankRow
+                  dish={item}
+                  rank={dishes.findIndex((d) => d.id === item.id) + 1}
+                  letter={letter}
+                />
+              )}
             />
-          ))}
-        </View>
-      </ScrollView>
+          </>
+        ) : (
+          <>
+            {dishes[0] ? (
+              <DishTile
+                dish={dishes[0]} rank={1} letter={letter} hero
+                onOpen={() => navigation.navigate("Detail", { id: dishes[0].id })}
+              />
+            ) : null}
+            <View style={styles.grid}>
+              {dishes.slice(1).map((d, i) => (
+                <DishTile
+                  key={d.id} dish={d} rank={i + 2} letter={letter}
+                  onOpen={() => navigation.navigate("Detail", { id: d.id })}
+                />
+              ))}
+            </View>
+          </>
+        )}
+      </ReAnimated.ScrollView>
 
-      <Pressable
-        style={styles.addPill}
-        onPress={() => navigation.navigate("AddDish", { category: { id : category.id, name} })}
-      >
-        <Text style={styles.addText}>+ Add dish</Text>
-      </Pressable>
+      {!rearranging ? (
+        <Pressable
+          style={styles.addPill}
+          onPress={() => navigation.navigate("AddDish", { category: { id: category.id, name } })}
+        >
+          <Text style={styles.addText}>+ Add dish</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -189,7 +298,10 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   title: { fontSize: 28, fontWeight: "500", color: "#2B2622" },
   pencil: { fontSize: 20, color: "#6B6054" },
-  sub: { fontSize: 13, color: "#6B6054", marginTop: 2, marginBottom: 16 },
+  subRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 2, marginBottom: 16 },
+  sub: { fontSize: 13, color: "#6B6054" },
+  rearrange: { fontSize: 14, color: "#A6492F" },
+  hint: { fontSize: 12, color: "#6B6054", marginBottom: 10 },
   error: { color: "#A32D2D", marginBottom: 8 },
   empty: { fontSize: 14, color: "#6B6054", marginTop: 20 },
   renameBox: { marginBottom: 4 },
@@ -233,6 +345,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFBF3", alignItems: "center", justifyContent: "center",
   },
   arrowText: { fontSize: 16, color: "#2B2622" },
+  rankRow: {
+    flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFBF3",
+    borderRadius: 16, padding: 10,
+  },
+  rankNum: { width: 22, textAlign: "center", fontSize: 16, fontWeight: "500", color: "#6B6054" },
+  rankThumb: { width: 50, height: 50, borderRadius: 14, backgroundColor: "#E9DFC9" },
+  rankLetterBox: { alignItems: "center", justifyContent: "center" },
+  rankLetter: { color: "#fff", fontSize: 20, fontWeight: "500" },
+  rankText: { flex: 1 },
+  rankName: { fontSize: 15, fontWeight: "500", color: "#2B2622" },
+  rankLabel: { fontSize: 12, color: "#6B6054", marginTop: 1 },
+  handle: { fontSize: 22, color: "#8C8073", paddingHorizontal: 4 },
   addPill: {
     position: "absolute", bottom: 28, alignSelf: "center", backgroundColor: "#D9774F",
     borderRadius: 22, paddingHorizontal: 22, paddingVertical: 11,
