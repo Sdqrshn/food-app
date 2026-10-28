@@ -9,6 +9,7 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [waking, setWaking] = useState(false);
 
   async function clear() {
     setToken(null);
@@ -29,6 +30,19 @@ export function AuthProvider({ children }) {
       } catch {}
       setReady(true);
     })();
+  }, []);
+
+  useEffect(() => {
+    let done = false;
+    const timer = setTimeout(() => { if (!done) setWaking(true); }, 3000);
+    fetch(`${API}/health/`)
+      .catch(() => {})
+      .finally(() => {
+        done = true;
+        clearTimeout(timer);
+        setWaking(false);
+      });
+    return () => clearTimeout(timer);
   }, []);
 
   async function authenticate(path, body) {
@@ -116,7 +130,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, ready, signIn, signUp, signOut, updateName, changePassword, deleteAccount }}>
+    <AuthContext.Provider value={{ user, ready, waking, signIn, signUp, signOut, updateName, changePassword, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

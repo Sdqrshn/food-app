@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View,
@@ -7,6 +7,7 @@ import { API, COLORS } from "../config";
 import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
 import { authFetch } from "../api";
+import Highlight from "../components/Highlight";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -32,6 +33,8 @@ export default function DetailScreen({ route, navigation }) {
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const highlight = route.params?.highlight;
+  const [hitColor, setHitColor] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,6 +44,16 @@ export default function DetailScreen({ route, navigation }) {
         .catch(() => setError("Could not reach the server"));
     }, [id])
   );
+
+  useEffect(() => {
+    if (!highlight || !dish) return;
+    const timers = [
+      setTimeout(() => setHitColor("#F6D98B"), 500),
+      setTimeout(() => setHitColor("#FBEBC5"), 1700),
+      setTimeout(() => setHitColor(null), 2300),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [dish?.id, highlight]);
 
   function openMap() {
     Linking.openURL(dish.map_link).catch(() => Alert.alert("Could not open the link"));
@@ -109,7 +122,12 @@ export default function DetailScreen({ route, navigation }) {
         </View>
 
         <Text style={styles.section}>Note</Text>
-        <Text style={styles.note}>{dish.note || "No note yet"}</Text>
+        <Highlight
+          text={dish.note || "No note yet"}
+          query={hitColor ? highlight : ""}
+          style={styles.note}
+          hitStyle={{ backgroundColor: hitColor, color: "#2B2622" }}
+        />
 
         <Text style={styles.section}>Rank history</Text>
         {events.length === 0 ? (

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
+import { BRAND } from "../brand";
 import { PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
 import { useAuth } from "../AuthContext";
@@ -62,8 +63,12 @@ export default function AuthScreen() {
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <Texture />
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>{signingUp ? "Create your account" : "Welcome"}</Text>
-        <Text style={styles.sub}>Your food rankings, just for you.</Text>
+        <View style={styles.brand}>
+          <Image source={require("../assets/icon.png")} style={styles.logo} />
+          <Text style={styles.brandName}>{BRAND.name}</Text>
+          <Text style={styles.motto}>{BRAND.motto}</Text>
+        </View>
+        <Text style={styles.heading}>{signingUp ? "Create your account" : "Welcome"}</Text>
 
         {signingUp ? (
           <Field label="Display name" error={errors.display_name}>
@@ -148,6 +153,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#D9774F", borderRadius: 22, paddingVertical: 13,
     alignItems: "center", marginTop: 8,
   },
+  brand: { alignItems: "center", marginBottom: 26 },
+  logo: { width: 84, height: 84, borderRadius: 22, marginBottom: 12 },
+  brandName: { fontSize: 30, fontWeight: "500", color: "#2B2622" },
+  motto: { fontSize: 14, color: "#6B6054", marginTop: 3 },
+  heading: { fontSize: 18, fontWeight: "500", color: "#2B2622", marginBottom: 14 },
   submitText: { color: "#fff", fontSize: 16 },
   switch: { textAlign: "center", color: "#A6492F", fontSize: 14, marginTop: 18 },
 });

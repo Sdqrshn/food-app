@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  Alert, Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Alert, Animated, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { API, COLORS } from "../config";
 import Texture from "../components/Texture";
@@ -69,14 +69,16 @@ export default function CategoryScreen({ route, navigation }) {
   const [draft, setDraft] = useState(category.name);
   const [nameError, setNameError] = useState("");
 
-  useFocusEffect(
-    useCallback(() => {
-      authFetch(`${API}/dishes/?category=${category.id}`)
-        .then((res) => res.json())
-        .then((data) => { setDishes(data); setError(""); })
-        .catch(() => setError("Could not reach the server"));
-    }, [])
-  );
+  const [refreshing, setRefreshing] = useState(false);
+
+  function loadDishes() {
+    return authFetch(`${API}/dishes/?category=${category.id}`)
+      .then((res) => res.json())
+      .then((data) => { setDishes(data); setError(""); })
+      .catch(() => setError("Could not reach the server"));
+  }
+
+  useFocusEffect(useCallback(() => { loadDishes(); }, []));
 
   async function saveName() {
     const trimmed = draft.trim();
@@ -102,7 +104,16 @@ export default function CategoryScreen({ route, navigation }) {
   return (
     <View style={styles.screen}>
       <Texture />
-      <ScrollView contentContainerStyle={styles.page}>
+      <ScrollView contentContainerStyle={styles.page}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor="#D9774F"
+            colors={["#D9774F"]}
+            onRefresh={() => { setRefreshing(true); loadDishes().finally(() => setRefreshing(false)); }}
+          />
+        }
+      >
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.back}>← Back</Text>
         </Pressable>
@@ -115,6 +126,7 @@ export default function CategoryScreen({ route, navigation }) {
               onChangeText={(t) => { setDraft(t); setNameError(""); }}
               autoFocus
               onSubmitEditing={saveName}
+              autoCapitalize="word"
             />
             {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
             <View style={styles.row}>

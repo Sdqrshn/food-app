@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Food Ranker",
+    "name": "Forkd",
     "slug": "food-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,24 +10,36 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.sdqrshn.foodranker",
+      "package": "com.hartlabs.foodranker",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#D9774F"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F0E4",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
     ],
     "extra": {
       "eas": {
         "projectId": "fa73e9d5-84e7-4e34-bd2c-bd33d7846ca2"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fa73e9d5-84e7-4e34-bd2c-bd33d7846ca2"
     }
   }
 }

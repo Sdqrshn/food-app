@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import ReAnimated, { useAnimatedRef } from "react-native-reanimated";
 import Sortable from "react-native-sortables";
+import { Ionicons } from "@expo/vector-icons";
 import {
-  Animated, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Image, RefreshControl, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { API, COLORS, PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
@@ -75,6 +76,16 @@ function NewCategory({ onAdded }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
 
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setEditing(false);
+        setName("");
+        setError("");
+      };
+    }, [])
+  );
+
   async function add() {
     const trimmed = name.trim();
     if (!trimmed) return setError("Enter a category name");
@@ -113,6 +124,7 @@ function NewCategory({ onAdded }) {
         placeholderTextColor={PLACEHOLDER}
         autoFocus
         onSubmitEditing={add}
+        autoCapitalize="words"
       />
       {error ? <Text style={styles.tileError}>{error}</Text> : null}
       <View style={styles.row}>
@@ -138,11 +150,16 @@ export default function HomeScreen({ navigation }) {
   const scrollRef = useAnimatedRef();
   const { user } = useAuth();
 
+
+  const [loaded, setLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
   function load() {
-    authFetch(`${API}/categories/`)
+    return authFetch(`${API}/categories/`)
       .then((res) => res.json())
       .then((data) => { setCategories(data); setError(""); })
-      .catch(() => setError("Could not reach the server"));
+      .catch(() => setError("Could not reach the server"))
+      .finally(() => setLoaded(true));
   }
 
   useFocusEffect(useCallback(() => { load(); }, []));
@@ -186,28 +203,45 @@ export default function HomeScreen({ navigation }) {
         ref={scrollRef}
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          inEdit ? undefined : (
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor="#D9774F"
+              colors={["#D9774F"]}
+              onRefresh={() => { setRefreshing(true); load().finally(() => setRefreshing(false)); }}
+            />
+          )
+        }
       >
         <Texture />
-        <View style={styles.topRow}>
-          <Pressable style={styles.avatar} onPress={() => navigation.navigate("Account")}>
+        <Pressable style={styles.topRow} onPress={() => navigation.navigate("Account")}>
+          <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {(user?.display_name || "?").charAt(0).toUpperCase()}
             </Text>
-          </Pressable>
+          </View>
           <Text style={styles.hi}>Hi, {user?.display_name}</Text>
-        </View>
+        </Pressable>
         <View style={styles.headRow}>
           <View>
             <Text style={styles.title}>Your rankings</Text>
             <Text style={styles.sub}>
-              {categories.length} {categories.length === 1 ? "category" : "categories"}
+              {!loaded
+                ? "Loading..."
+                : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}
             </Text>
           </View>
-          {categories.length > 0 ? (
-            <Pressable onPress={() => setEditMode(!editMode)}>
-              <Text style={styles.editBtn}>{inEdit ? "Done" : "Edit"}</Text>
+          <View style={styles.headActions}>
+            <Pressable style={styles.searchBtn} onPress={() => navigation.navigate("Search")}>
+              <Ionicons name="search" size={18} color="#A6492F" />
             </Pressable>
-          ) : null}
+            {categories.length > 0 ? (
+              <Pressable onPress={() => setEditMode(!editMode)}>
+                <Text style={styles.editBtn}>{inEdit ? "Done" : "Edit"}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {inEdit ? <Text style={styles.hint}>Hold a card, then drag to rearrange</Text> : null}
@@ -294,7 +328,7 @@ const styles = StyleSheet.create({
     position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14,
     backgroundColor: "#F7E1DD", alignItems: "center", justifyContent: "center",
   },
-  topRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
+  topRow: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 10, marginBottom: 14 },
   avatar: {
     width: 34, height: 34, borderRadius: 17, backgroundColor: "#D9774F",
     alignItems: "center", justifyContent: "center",
@@ -320,4 +354,9 @@ const styles = StyleSheet.create({
   okText: { color: "#fff", fontSize: 13 },
   cancelBtn: { borderWidth: 1, borderColor: "#CDBFA6", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5 },
   cancelText: { color: "#2B2622", fontSize: 13 },
+  headActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  searchBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: "#FFFBF3",
+    borderWidth: 1, borderColor: "#D6C9B0", alignItems: "center", justifyContent: "center",
+  },
 });

@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+
 import { API, PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
 import { pickHints } from "../placeholders"
 import { getAuthHeader } from "../api";
+import { authFetch } from "../api";
 
 function today() {
   const d = new Date();
@@ -48,6 +51,22 @@ function upload(method, url, form) {
   });
 }
 
+async function shrink(asset) {
+  try {
+    const resize =
+      asset.width >= asset.height
+        ? { width: Math.min(asset.width, 1200) }
+        : { height: Math.min(asset.height, 1200) };
+    const context = ImageManipulator.manipulate(asset.uri);
+    context.resize(resize);
+    const image = await context.renderAsync();
+    const result = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
+    return { uri: result.uri, mimeType: "image/jpeg" };
+  } catch {
+    return asset;
+  }
+}
+
 export default function AddDishScreen({ route, navigation }) {
   const { category, dish } = route.params;
   const editing = !!dish;
@@ -58,20 +77,23 @@ export default function AddDishScreen({ route, navigation }) {
   const [price, setPrice] = useState(dish?.price ? String(Number(dish.price)) : "");
   const [date, setDate] = useState(dish?.date_tried ?? today());
   const [note, setNote] = useState(dish?.note ?? "");
-  const [mapLink, setMapLink] = useState(dish?.map_link ?? "");
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [placeId, setPlaceId] = useState(dish?.place_id ?? "");
+  const [suggestions, setSuggestions] = useState([]);
+  const skipLookup = useRef(false);
+  const focusedRef = useRef(false);
 
   async function fromCamera() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) return setErrors({ photo: "Camera permission is needed" });
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    if (!result.canceled) { setPhoto(result.assets[0]); setErrors({}); }
+    if (!result.canceled) { setPhoto(await shrink(result.assets[0])); setErrors({}); }
   }
 
   async function fromGallery() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
-    if (!result.canceled) { setPhoto(result.assets[0]); setErrors({}); }
+    if (!result.canceled) { setPhoto(await shrink(result.assets[0])); setErrors({}); }
   }
 
   function changePhoto() {
@@ -94,7 +116,7 @@ export default function AddDishScreen({ route, navigation }) {
     form.append("price", price.replace("₹", "").trim());
     if (date.trim()) form.append("date_tried", date.trim());
     form.append("note", note.trim());
-    form.append("map_link", mapLink.trim());
+    form.append("place_id", placeId);
     if (photo && !photo.existing) {
       form.append("photo", { uri: photo.uri, name: "dish.jpg", type: photo.mimeType || "image/jpeg" });
     } else if (!photo && dish?.photo) {
@@ -112,12 +134,45 @@ export default function AddDishScreen({ route, navigation }) {
             restaurant: data?.restaurant?.[0],
             price: data?.price?.[0],
             date: data?.date_tried?.[0],
-            mapLink: data?.map_link?.[0],
         });
     } catch (e) {
-      setErrors({ form: "Failed: " + String(e) });
+      setErrors({ form: "Couldn't reach the server. It may still be waking up, so try again in a moment." });
     }
     setSaving(false);
+  }
+
+  useEffect(() => {
+    if (skipLookup.current) {
+      skipLookup.current = false;
+      return;
+    }
+    const q = restaurant.trim();
+    if (q.length < 3 || placeId || (editing && q === dish?.restaurant)) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      authFetch(`${API}/places/autocomplete/?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data) => { if (!cancelled && focusedRef.current && Array.isArray(data)) setSuggestions(data); })
+        .catch(() => {});
+    }, 450);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [restaurant]);
+
+  function pickSuggestion(s) {
+    if (s.name !== restaurant) skipLookup.current = true;
+    setRestaurant(s.name);
+    setPlaceId(s.place_id || "");
+    setSuggestions([]);
+  }
+
+  function searchGoogle() {
+    authFetch(`${API}/places/autocomplete/?q=${encodeURIComponent(restaurant.trim())}&source=google`)
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setSuggestions(data); })
+      .catch(() => {});
   }
 
   return (
@@ -164,10 +219,47 @@ export default function AddDishScreen({ route, navigation }) {
       )}
       {errors.photo ? <Text style={styles.error}>{errors.photo}</Text> : null}
 
-      <Field label="Restaurant" value={restaurant} onChangeText={(t) => { setRestaurant(t); setErrors({}); }}
-        placeholder={hints.restaurant} error={errors.restaurant} />
+      <Field
+        label="Restaurant"
+        value={restaurant}
+        onChangeText={(t) => {
+          setRestaurant(t);
+          setErrors({});
+          if (!t.trim()) { setPlaceId(""); setSuggestions([]); }
+        }}
+        placeholder={hints.restaurant}
+        error={errors.restaurant}
+        autoCapitalize="words"
+        onFocus={() => { focusedRef.current = true; }}
+        onBlur={() => { focusedRef.current = false; setTimeout(() => setSuggestions([]), 200); }}
+      />
+      {suggestions.length > 0 ? (
+        <View style={styles.suggestions}>
+          {suggestions.map((s) => (
+            <Pressable key={`${s.name}-${s.place_id}`} style={styles.suggestion} onPress={() => pickSuggestion(s)}>
+              <Text style={styles.sugName} numberOfLines={1}>{s.name}</Text>
+              <Text style={styles.sugAddr} numberOfLines={1}>
+                {s.saved ? "Already in your list" : s.address}
+              </Text>
+            </Pressable>
+          ))}
+          {suggestions.some((s) => s.saved) ? (
+            <Pressable style={styles.suggestion} onPress={searchGoogle}>
+              <Text style={styles.sugGoogle}>Not here? Search Google Maps</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {placeId ? (
+        <View style={styles.linked}>
+          <Text style={styles.linkedText}>Linked to Google Maps</Text>
+          <Pressable onPress={() => setPlaceId("")}>
+            <Text style={styles.linkedText}>✕</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <Field label="Dish name" optional value={name} onChangeText={setName}
-        placeholder={hints.dish} error={errors.name} />
+        placeholder={hints.dish} error={errors.name} autoCapitalize="words" />
       <View style={styles.twoCol}>
         <View style={styles.half}>
           <Field label="Price" optional value={price} onChangeText={setPrice}
@@ -180,8 +272,6 @@ export default function AddDishScreen({ route, navigation }) {
       </View>
       <Field label="Note" optional value={note} onChangeText={setNote}
         placeholder={hints.note} multiline />
-      <Field label="Google Maps link" optional value={mapLink} onChangeText={setMapLink}
-        placeholder="Paste a link" autoCapitalize="none" error={errors.mapLink} />
 
       {errors.form ? <Text style={styles.error}>{errors.form}</Text> : null}
       <Pressable style={styles.save} onPress={save} disabled={saving}>
@@ -227,4 +317,18 @@ const styles = StyleSheet.create({
     alignItems: "center", marginTop: 8,
   },
   saveText: { color: "#fff", fontSize: 15 },
+  suggestions: {
+    backgroundColor: "#FFFBF3", borderRadius: 14, borderWidth: 1, borderColor: "#D6C9B0",
+    marginTop: -4, marginBottom: 10, overflow: "hidden",
+  },
+  suggestion: { paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 0.5, borderBottomColor: "#EFE6D3" },
+  sugName: { fontSize: 14, fontWeight: "500", color: "#2B2622" },
+  sugAddr: { fontSize: 12, color: "#6B6054" },
+  linked: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 10,
+    backgroundColor: "#E6EFDD", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4,
+    marginTop: -4, marginBottom: 10,
+  },
+  sugGoogle: { fontSize: 13, color: "#A6492F" },
+  linkedText: { fontSize: 12, color: "#27500A" },
 });
