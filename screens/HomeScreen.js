@@ -11,6 +11,7 @@ import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
 import { authFetch } from "../api";
 import { useAuth } from "../AuthContext";
+import { useTabBarScroll } from "../components/FloatingTabBar";
 
 function CategoryCard({ category, index, editMode, inGrid, onPress, onDelete }) {
   const anim = useRef(new Animated.Value(inGrid ? 1 : 0)).current;
@@ -149,7 +150,7 @@ export default function HomeScreen({ navigation }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const scrollRef = useAnimatedRef();
   const { user } = useAuth();
-
+  const onScroll = useTabBarScroll();
 
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -199,10 +200,13 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
+      <Texture />
       <ReAnimated.ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={
           inEdit ? undefined : (
             <RefreshControl
@@ -214,15 +218,7 @@ export default function HomeScreen({ navigation }) {
           )
         }
       >
-        <Texture />
-        <Pressable style={styles.topRow} onPress={() => navigation.navigate("Account")}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(user?.display_name || "?").charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={styles.hi}>Hi, {user?.display_name}</Text>
-        </Pressable>
+        <Text style={styles.hi}>Hi, {user?.display_name}</Text>
         <View style={styles.headRow}>
           <View>
             <Text style={styles.title}>Your rankings</Text>
@@ -298,7 +294,7 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F6F0E4" },
-  page: { padding: 20, paddingTop: 70, paddingBottom: 40, flexGrow: 1 },
+  page: { padding: 20, paddingTop: 70, paddingBottom: 120, flexGrow: 1 },
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 },
   title: { fontSize: 28, fontWeight: "500", color: "#2B2622" },
   sub: { fontSize: 13, color: "#6B6054", marginTop: 2 },
@@ -328,13 +324,7 @@ const styles = StyleSheet.create({
     position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14,
     backgroundColor: "#F7E1DD", alignItems: "center", justifyContent: "center",
   },
-  topRow: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 10, marginBottom: 14 },
-  avatar: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: "#D9774F",
-    alignItems: "center", justifyContent: "center",
-  },
-  avatarText: { color: "#fff", fontSize: 15, fontWeight: "500" },
-  hi: { fontSize: 14, color: "#6B6054" },
+  hi: { fontSize: 18, color: "#6B6054", marginBottom: 14},
   deleteText: { fontSize: 13, color: "#A32D2D" },
   gridCell: { width: "100%" },
   hint: { fontSize: 12, color: "#6B6054", marginBottom: 10 },

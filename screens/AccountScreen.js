@@ -7,6 +7,8 @@ import { useAuth } from "../AuthContext";
 import { PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
+import ReAnimated from "react-native-reanimated";
+import { useTabBarScroll } from "../components/FloatingTabBar";
 
 const first = (v) => (Array.isArray(v) ? v.join(" ") : v);
 
@@ -22,6 +24,7 @@ function Input({ label, error, ...props }) {
 
 export default function AccountScreen({ navigation }) {
   const { user, signOut, updateName, changePassword, deleteAccount } = useAuth();
+  const onScroll = useTabBarScroll();
   const [open, setOpen] = useState(null);
   const [saved, setSaved] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -106,10 +109,12 @@ export default function AccountScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <Texture />
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Back</Text>
-        </Pressable>
+      <ReAnimated.ScrollView
+       onScroll={onScroll} 
+       scrollEventThrottle={16} 
+       contentContainerStyle={styles.page} 
+       keyboardShouldPersistTaps="handled"
+      >
 
         <View style={styles.profile}>
           <View style={styles.avatar}>
@@ -206,11 +211,11 @@ export default function AccountScreen({ navigation }) {
             onPress={() => { setDeletePw(""); setDeleteError(""); setDeleting(true); }}
           >
             <Text style={styles.deleteLabel}>Delete account</Text>
-            <Text style={styles.deleteSub}>Removes all your rankings for good</Text>
+            <Text style={styles.deleteSub}>Removes all your data for good</Text>
           </Pressable>
         </View>
 
-      </ScrollView>
+      </ReAnimated.ScrollView>
 
       <ConfirmModal
         visible={loggingOut}
@@ -250,7 +255,7 @@ export default function AccountScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F6F0E4" },
-  page: { flexGrow: 1, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 },
+  page: { flexGrow: 1, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 120 },
   back: { fontSize: 15, color: "#6B6054", marginBottom: 12 },
   profile: { alignItems: "center", marginTop: 12, marginBottom: 28 },
   avatar: {

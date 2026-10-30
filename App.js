@@ -3,6 +3,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import FloatingTabBar, { TabBarProvider } from "./components/FloatingTabBar";
+import ToEatScreen from "./screens/ToEatScreen";
 import { AuthProvider, useAuth } from "./AuthContext";
 import AuthScreen from "./screens/AuthScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -14,6 +17,24 @@ import AccountScreen from "./screens/AccountScreen";
 import SearchScreen from "./screens/SearchScreen";
 
 const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function Tabs() {
+  return (
+    <TabBarProvider>
+      <Tab.Navigator
+        initialRouteName="Rankings"
+        backBehavior="initialRoute"
+        tabBar={(props) => <FloatingTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tab.Screen name="ToEat" component={ToEatScreen} />
+        <Tab.Screen name="Rankings" component={HomeScreen} />
+        <Tab.Screen name="Account" component={AccountScreen} />
+      </Tab.Navigator>
+    </TabBarProvider>
+  );
+}
 
 function WakeBanner() {
   const { waking } = useAuth();
@@ -28,7 +49,7 @@ function WakeBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: "absolute", bottom: 40, alignSelf: "center", flexDirection: "row", alignItems: "center",
+    position: "absolute", bottom: 110, alignSelf: "center", flexDirection: "row", alignItems: "center",
     gap: 8, backgroundColor: "#FFFBF3", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
     borderWidth: 1, borderColor: "#D6C9B0", zIndex: 10, elevation: 6,
   },
@@ -48,7 +69,7 @@ function Root() {
         >
           {user ? (
             <>
-              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="Home" component={Tabs} />
               <Stack.Screen name="Category" component={CategoryScreen} />
               <Stack.Screen name="AddDish" component={AddDishScreen} />
               <Stack.Screen
@@ -57,7 +78,6 @@ function Root() {
                 options={{ gestureEnabled: false }}
               />
               <Stack.Screen name="Detail" component={DetailScreen} />
-              <Stack.Screen name="Account" component={AccountScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
             </>
           ) : (

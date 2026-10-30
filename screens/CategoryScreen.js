@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  Animated, Image, Pressable, RefreshControl, StyleSheet, Text, TextInput, View,
+  Animated, Image, Pressable, BackHandler, RefreshControl, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import ReAnimated, { useAnimatedRef } from "react-native-reanimated";
 import Sortable from "react-native-sortables";
@@ -80,26 +80,17 @@ function RankRow({ dish, rank, letter }) {
   );
 }
 
-function findMoved(before, after) {
-  for (const d of before) {
-    const a = before.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
-    const b = after.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
-    const newIndex = after.findIndex((x) => x.id === d.id);
-    if (a === b && before.indexOf(d) !== newIndex) return { dish: d, position: newIndex };
-  }
-  return null;
-}
-
 export default function CategoryScreen({ route, navigation }) {
   const { category } = route.params;
   const [name, setName] = useState(category.name);
   const [dishes, setDishes] = useState([]);
   const [error, setError] = useState("");
   const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(category.name);
   const [nameError, setNameError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [rearranging, setRearranging] = useState(false);
+  const [draft, setDraft] = useState(category.name);
+  const [rankDraft, setRankDraft] = useState([]);  const [saving, setSaving] = useState(false);
   const scrollRef = useAnimatedRef();
 
   function loadDishes() {
@@ -130,27 +121,49 @@ export default function CategoryScreen({ route, navigation }) {
     }
   }
 
-  async function onDragEnd(data) {
-    const moved = findMoved(dishes, data);
-    if (!moved) return;
-    setDishes(data);
-    try {
-      const res = await authFetch(`${API}/dishes/${moved.dish.id}/move/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ position: moved.position }),
-      });
-      if (!res.ok) throw new Error("bad response");
-    } catch {
-      setError("Could not save the new order");
-      loadDishes();
-    }
+  function startRearrange() {
+    setRankDraft(dishes);
+    setRearranging(true);
   }
 
-  function toggleRearrange() {
-    if (rearranging) loadDishes();
-    setRearranging(!rearranging);
+  async function saveOrder() {
+    if (rankDraft.every((d, i) => d.id === dishes[i].id)) {
+      setRearranging(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API}/dishes/order/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: category.id, order: rankDraft.map((d) => d.id) }),
+      });
+      if (!res.ok) throw new Error("bad response");
+      setRearranging(false);
+      await loadDishes();
+    } catch {
+      setError("Could not save the new order");
+    }
+    setSaving(false);
   }
+
+  function goBack() {
+    if (rearranging) setRearranging(false);
+    else navigation.goBack();
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (rearranging) {
+          setRearranging(false);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [rearranging])
+  );
 
   const letter = name.charAt(0).toUpperCase();
 
@@ -171,7 +184,7 @@ export default function CategoryScreen({ route, navigation }) {
           )
         }
       >
-        <Pressable onPress={() => navigation.goBack()}>
+        <Pressable onPress = {goBack}>
           <Text style={styles.back}>← Back</Text>
         </Pressable>
 
@@ -210,25 +223,36 @@ export default function CategoryScreen({ route, navigation }) {
             {dishes.length} {dishes.length === 1 ? "dish" : "dishes"}
           </Text>
           {dishes.length > 1 ? (
-            <Pressable
-              onPress={toggleRearrange}
-              hitSlop={10}
-              android_ripple={{ color: '#00000020' }}
-              style={({ pressed }) => ({
-                alignSelf: 'flex-start',
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 999,
-                backgroundColor: '#FFFBF3',
-                borderWidth: 1,
-                borderColor: '#00000015',
-                overflow: 'hidden', // keeps the ripple inside the rounded shape
-                opacity: pressed ? 0.7 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              })}
-            >
-              <Text style={styles.rearrange}>{rearranging ? "Done" : "Rearrange"}</Text>
-            </Pressable>
+            rearranging ? (
+              <View style={styles.rearrangeActions}>
+                <Pressable onPress={() => setRearranging(false)} disabled={saving}>
+                  <Text style={styles.rearrangeCancel}>Cancel</Text>
+                </Pressable>
+                <Pressable onPress={saveOrder} disabled={saving}>
+                  <Text style={styles.rearrange}>{saving ? "Saving..." : "Done"}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={startRearrange}
+                hitSlop={10}
+                android_ripple={{ color: '#00000020' }}
+                style={({ pressed }) => ({
+                  alignSelf: 'flex-start',
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  borderRadius: 999,
+                  backgroundColor: '#FFFBF3',
+                  borderWidth: 1,
+                  borderColor: '#00000015',
+                  overflow: 'hidden',
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.96 : 1 }],
+                })}
+              >
+                <Text style={styles.rearrange}>Rearrange</Text>
+              </Pressable>
+            )
           ) : null}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -242,18 +266,17 @@ export default function CategoryScreen({ route, navigation }) {
             <Text style={styles.hint}>Hold a dish, then drag it to a new spot</Text>
             <Sortable.Grid
               columns={1}
-              data={dishes}
+              data={rankDraft}
               rowGap={8}
               enableActiveItemSnap={false}
-              //overDrag="vertical"
               activeItemScale={1.02}
               keyExtractor={(d) => String(d.id)}
               scrollableRef={scrollRef}
-              onDragEnd={({ data }) => onDragEnd(data)}
+              onDragEnd={({ data }) => setRankDraft(data)}
               renderItem={({ item }) => (
                 <RankRow
                   dish={item}
-                  rank={dishes.findIndex((d) => d.id === item.id) + 1}
+                  rank={rankDraft.findIndex((d) => d.id === item.id) + 1}
                   letter={letter}
                 />
               )}
@@ -361,5 +384,7 @@ const styles = StyleSheet.create({
     position: "absolute", bottom: 28, alignSelf: "center", backgroundColor: "#D9774F",
     borderRadius: 22, paddingHorizontal: 22, paddingVertical: 11,
   },
+  rearrangeActions: { flexDirection: "row", alignItems: "center", gap: 18 },
+  rearrangeCancel: { fontSize: 14, color: "#6B6054" },
   addText: { color: "#fff", fontSize: 15 },
 });
