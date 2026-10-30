@@ -8,6 +8,7 @@ import Sortable from "react-native-sortables";
 import { API, COLORS } from "../config";
 import { authFetch } from "../api";
 import Texture from "../components/Texture";
+import { useToast } from "../ToastContext";
 
 function DishTile({ dish, rank, letter, hero, onOpen }) {
   const [open, setOpen] = useState(false);
@@ -80,6 +81,22 @@ function RankRow({ dish, rank, letter }) {
   );
 }
 
+function ordinal(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`;
+}
+
+function findMoved(before, after) {
+  for (const d of before) {
+    const a = before.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
+    const b = after.filter((x) => x.id !== d.id).map((x) => x.id).join(",");
+    const newIndex = after.findIndex((x) => x.id === d.id);
+    if (a === b && before.indexOf(d) !== newIndex) return { dish: d, position: newIndex };
+  }
+  return null;
+}
+
 export default function CategoryScreen({ route, navigation }) {
   const { category } = route.params;
   const [name, setName] = useState(category.name);
@@ -92,6 +109,8 @@ export default function CategoryScreen({ route, navigation }) {
   const [draft, setDraft] = useState(category.name);
   const [rankDraft, setRankDraft] = useState([]);  const [saving, setSaving] = useState(false);
   const scrollRef = useAnimatedRef();
+  const { hidden, showUndo, commitNow } = useToast();
+  const visibleDishes = dishes.filter((d) => !hidden.dish.includes(d.id));
 
   function loadDishes() {
     return authFetch(`${API}/dishes/?category=${category.id}`)
@@ -122,12 +141,26 @@ export default function CategoryScreen({ route, navigation }) {
   }
 
   function startRearrange() {
-    setRankDraft(dishes);
+    commitNow();
+    setRenaming(false);
+    setRankDraft(visibleDishes);
     setRearranging(true);
   }
 
+  async function undoOrder(ids) {
+    try {
+      await authFetch(`${API}/dishes/order/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: category.id, order: ids }),
+      });
+    } catch {}
+    loadDishes();
+  }
+
   async function saveOrder() {
-    if (rankDraft.every((d, i) => d.id === dishes[i].id)) {
+    const before = visibleDishes;
+    if (rankDraft.every((d, i) => d.id === before[i].id)) {
       setRearranging(false);
       return;
     }
@@ -141,6 +174,13 @@ export default function CategoryScreen({ route, navigation }) {
       if (!res.ok) throw new Error("bad response");
       setRearranging(false);
       await loadDishes();
+      const moved = findMoved(before, rankDraft);
+      showUndo({
+        message: moved
+          ? `Moved ${moved.dish.restaurant} to ${ordinal(moved.position + 1)} position`
+          : "Order updated",
+        onUndo: () => undoOrder(before.map((d) => d.id)),
+      });
     } catch {
       setError("Could not save the new order");
     }
@@ -212,17 +252,19 @@ export default function CategoryScreen({ route, navigation }) {
         ) : (
           <View style={styles.titleRow}>
             <Text style={styles.title}>{name}</Text>
-            <Pressable onPress={() => { setDraft(name); setRenaming(true); }}>
-              <Text style={styles.pencil}>✎</Text>
-            </Pressable>
+            {!rearranging ? (
+              <Pressable onPress={() => { setDraft(name); setRenaming(true); }}>
+                <Text style={styles.pencil}>✎</Text>
+              </Pressable>
+            )  : null}
           </View>
         )}
 
         <View style={styles.subRow}>
           <Text style={styles.sub}>
-            {dishes.length} {dishes.length === 1 ? "dish" : "dishes"}
+            {visibleDishes.length} {visibleDishes.length === 1 ? "dish" : "dishes"}
           </Text>
-          {dishes.length > 1 ? (
+          {visibleDishes.length > 1 ? (
             rearranging ? (
               <View style={styles.rearrangeActions}>
                 <Pressable onPress={() => setRearranging(false)} disabled={saving}>
@@ -257,7 +299,7 @@ export default function CategoryScreen({ route, navigation }) {
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {dishes.length === 0 && !error ? (
+        {visibleDishes.length === 0 && !error ? (
           <Text style={styles.empty}>No dishes yet. Tap + Add dish to add your first.</Text>
         ) : null}
 
@@ -284,14 +326,14 @@ export default function CategoryScreen({ route, navigation }) {
           </>
         ) : (
           <>
-            {dishes[0] ? (
+            {visibleDishes[0] ? (
               <DishTile
-                dish={dishes[0]} rank={1} letter={letter} hero
-                onOpen={() => navigation.navigate("Detail", { id: dishes[0].id })}
+                dish={visibleDishes[0]} rank={1} letter={letter} hero
+                onOpen={() => navigation.navigate("Detail", { id: visibleDishes[0].id })}
               />
             ) : null}
             <View style={styles.grid}>
-              {dishes.slice(1).map((d, i) => (
+              {visibleDishes.slice(1).map((d, i) => (
                 <DishTile
                   key={d.id} dish={d} rank={i + 2} letter={letter}
                   onOpen={() => navigation.navigate("Detail", { id: d.id })}

@@ -8,6 +8,7 @@ import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
 import { authFetch } from "../api";
 import FadingHighlight from "../components/FadingHighlight";
+import { useToast } from "../ToastContext";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -34,6 +35,7 @@ export default function DetailScreen({ route, navigation }) {
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const highlight = route.params?.highlight;
+  const toast = useToast();
 
   useFocusEffect(
     useCallback(() => {
@@ -49,14 +51,14 @@ export default function DetailScreen({ route, navigation }) {
     Linking.openURL(dish.map_link).catch(() => Alert.alert("Could not open the link"));
   }
 
-  async function remove() {
-    try {
-      const res = await authFetch(`${API}/dishes/${id}/`, { method: "DELETE" });
-      if (res.ok) navigation.goBack();
-      else Alert.alert("Could not delete the dish");
-    } catch {
-      Alert.alert("Could not reach the server");
-    }
+  function remove() {
+    toast.deleteWithUndo({
+      kind: "dish",
+      id,
+      label: dish.restaurant,
+      commit: () => authFetch(`${API}/dishes/${id}/`, { method: "DELETE" }).catch(() => {}),
+    });
+    navigation.goBack();
   }
 
   if (!dish) {

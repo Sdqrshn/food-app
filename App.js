@@ -15,6 +15,7 @@ import MatchupScreen from "./screens/MatchupScreen";
 import DetailScreen from "./screens/DetailScreen";
 import AccountScreen from "./screens/AccountScreen";
 import SearchScreen from "./screens/SearchScreen";
+import { ToastProvider } from "./ToastContext";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -95,7 +96,9 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <AuthProvider>
-        <Root />
+        <ToastProvider>
+          <Root />
+        </ToastProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

@@ -12,6 +12,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { authFetch } from "../api";
 import { useAuth } from "../AuthContext";
 import { useTabBarScroll } from "../components/FloatingTabBar";
+import { useToast } from "../ToastContext";
 
 function CategoryCard({ category, index, editMode, inGrid, onPress, onDelete }) {
   const anim = useRef(new Animated.Value(inGrid ? 1 : 0)).current;
@@ -151,9 +152,10 @@ export default function HomeScreen({ navigation }) {
   const scrollRef = useAnimatedRef();
   const { user } = useAuth();
   const onScroll = useTabBarScroll();
-
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { hidden, deleteWithUndo } = useToast();
+  const visible = categories.filter((c) => !hidden.category.includes(c.id));
 
   function load() {
     return authFetch(`${API}/categories/`)
@@ -196,7 +198,7 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
-  const inEdit = editMode && categories.length > 0;
+  const inEdit = editMode && visible.length > 0;
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
@@ -225,14 +227,14 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.sub}>
               {!loaded
                 ? "Loading..."
-                : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}
+                : `${visible.length} ${visible.length === 1 ? "category" : "categories"}`}
             </Text>
           </View>
           <View style={styles.headActions}>
             <Pressable style={styles.searchBtn} onPress={() => navigation.navigate("Search")}>
               <Ionicons name="search" size={18} color="#A6492F" />
             </Pressable>
-            {categories.length > 0 ? (
+            {visible.length > 0 ? (
               <Pressable onPress={() => setEditMode(!editMode)}>
                 <Text style={styles.editBtn}>{inEdit ? "Done" : "Edit"}</Text>
               </Pressable>
@@ -244,7 +246,7 @@ export default function HomeScreen({ navigation }) {
         {inEdit ? (
           <Sortable.Grid
             columns={2}
-            data={categories}
+            data={visible}
             rowGap={12}
             columnGap={12}
             keyExtractor={(c) => String(c.id)}
@@ -262,7 +264,7 @@ export default function HomeScreen({ navigation }) {
           />
         ) : (
           <View style={styles.grid}>
-            {categories.map((c, i) => (
+            {visible.map((c, i) => (
               <CategoryCard
                 key={c.id}
                 category={c}
@@ -284,7 +286,17 @@ export default function HomeScreen({ navigation }) {
           message={pendingDelete ? deleteMessage(pendingDelete) : ""}
           confirmText="Delete"
           danger
-          onConfirm={() => { const id = pendingDelete.id; setPendingDelete(null); remove(id); }}
+          onConfirm={() => {
+            const c = pendingDelete;
+            setPendingDelete(null);
+            deleteWithUndo({
+              kind: "category",
+              id: c.id,
+              label: c.name,
+              commit: () => remove(c.id),
+              onUndo: load,
+            });
+          }}
           onCancel={() => setPendingDelete(null)}
         />
       </ReAnimated.ScrollView>
