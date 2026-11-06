@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, AppState, Pressable, StyleSheet, Text, View, Keyboard, Platform } from "react-native";
 
 const ToastContext = createContext(null);
 export const useToast = () => useContext(ToastContext);
@@ -9,16 +9,21 @@ const BOTTOM = 96;
 
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
-  const [hidden, setHidden] = useState({ dish: [], category: [] });
+  const [hidden, setHidden] = useState({ dish: [], category: [], toEat: []  });
   const timer = useRef(null);
   const pending = useRef(null);
   const anim = useRef(new Animated.Value(0)).current;
+  const expired = useRef(false);
+  const [kb, setKb] = useState(false);
 
   const commitNow = useCallback(() => {
     clearTimeout(timer.current);
     const run = pending.current;
     pending.current = null;
-    if (run) run();
+    if (run) {
+      expired.current = true;
+      run();
+    }
   }, []);
 
   const dismiss = useCallback(() => {
@@ -29,11 +34,13 @@ export function ToastProvider({ children }) {
 
   const present = useCallback(
     (message, onUndo) => {
+      expired.current = false;
       clearTimeout(timer.current);
       setToast({ message, onUndo });
       anim.setValue(0);
       Animated.spring(anim, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }).start();
       timer.current = setTimeout(() => {
+        expired.current = true;
         commitNow();
         dismiss();
       }, DURATION);
@@ -64,6 +71,14 @@ export function ToastProvider({ children }) {
   );
 
   useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const a = Keyboard.addListener(showEvt, () => setKb(true));
+    const b = Keyboard.addListener(hideEvt, () => setKb(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
+
+  useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") commitNow();
     });
@@ -71,6 +86,7 @@ export function ToastProvider({ children }) {
   }, [commitNow]);
 
   function onUndoPress() {
+    if (expired.current) return;
     clearTimeout(timer.current);
     if (toast && toast.onUndo) toast.onUndo();
     dismiss();
@@ -89,6 +105,7 @@ export function ToastProvider({ children }) {
           <Animated.View
             style={[
               styles.toast,
+              { bottom: kb ? 12 : BOTTOM },
               {
                 opacity: anim,
                 transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],

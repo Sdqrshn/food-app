@@ -16,6 +16,10 @@ import DetailScreen from "./screens/DetailScreen";
 import AccountScreen from "./screens/AccountScreen";
 import SearchScreen from "./screens/SearchScreen";
 import { ToastProvider } from "./ToastContext";
+import ToEatFormScreen from "./screens/ToEatFormScreen";
+import ChooseCategoryScreen from "./screens/ChooseCategoryScreen";
+import SavedScreen from "./screens/SavedScreen";
+import WakeScreen from "./components/WakeScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -37,25 +41,10 @@ function Tabs() {
   );
 }
 
-function WakeBanner() {
+function WakeOverlay() {
   const { waking } = useAuth();
-  if (!waking) return null;
-  return (
-    <View pointerEvents="none" style={styles.banner}>
-      <ActivityIndicator size="small" color="#A6492F" />
-      <Text style={styles.bannerText}>Waking up the server, this can take a minute</Text>
-    </View>
-  );
+  return <WakeScreen visible={waking} />;
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    position: "absolute", bottom: 110, alignSelf: "center", flexDirection: "row", alignItems: "center",
-    gap: 8, backgroundColor: "#FFFBF3", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: "#D6C9B0", zIndex: 10, elevation: 6,
-  },
-  bannerText: { fontSize: 13, color: "#2B2622" },
-});
 
 function Root() {
   const { user, ready } = useAuth();
@@ -73,6 +62,8 @@ function Root() {
               <Stack.Screen name="Home" component={Tabs} />
               <Stack.Screen name="Category" component={CategoryScreen} />
               <Stack.Screen name="AddDish" component={AddDishScreen} />
+              <Stack.Screen name="ToEatForm" component={ToEatFormScreen} />
+              <Stack.Screen name="Saved" component={SavedScreen} />
               <Stack.Screen
                 name="Matchup"
                 component={MatchupScreen}
@@ -80,13 +71,14 @@ function Root() {
               />
               <Stack.Screen name="Detail" component={DetailScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
+              <Stack.Screen name="ChooseCategory" component={ChooseCategoryScreen} />
             </>
           ) : (
             <Stack.Screen name="Auth" component={AuthScreen} />
           )}
         </Stack.Navigator>
       </NavigationContainer>
-      <WakeBanner />
+      <WakeOverlay />
     </View>
   );
 }

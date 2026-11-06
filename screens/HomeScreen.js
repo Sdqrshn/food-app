@@ -4,7 +4,7 @@ import ReAnimated, { useAnimatedRef } from "react-native-reanimated";
 import Sortable from "react-native-sortables";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Animated, Image, RefreshControl, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Image, BackHandler, RefreshControl, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { API, COLORS, PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
@@ -27,7 +27,8 @@ function CategoryCard({ category, index, editMode, inGrid, onPress, onDelete }) 
     }).start();
   }, []);
 
-  const color = COLORS[category.id % COLORS.length];
+  const color = category.is_uncategorized ? "#A89F8F" : COLORS[category.id % COLORS.length];
+  const isU = !!category.is_uncategorized;
   const count = category.dish_count;
   const slide = anim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
 
@@ -48,11 +49,15 @@ function CategoryCard({ category, index, editMode, inGrid, onPress, onDelete }) 
             </View>
           ) : (
             <View style={[styles.letterCircle, { backgroundColor: color }]}>
-              <Text style={styles.letterText}>{category.name.charAt(0).toUpperCase()}</Text>
+              {isU ? (
+                <Ionicons name="file-tray-full-outline" size={22} color="#ffff" />
+              ) : (
+                <Text style={styles.letterText}>{category.name.charAt(0).toUpperCase()}</Text>
+              )}
             </View>
           )}
 
-          {editMode ? (
+          {editMode && !isU ? (
             <Pressable style={styles.delete} onPress={onDelete}>
               <Text style={styles.deleteText}>✕</Text>
             </Pressable>
@@ -156,6 +161,8 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const { hidden, deleteWithUndo } = useToast();
   const visible = categories.filter((c) => !hidden.category.includes(c.id));
+  const uncategorized = visible.find((c) => c.is_uncategorized);
+  const sortable = visible.filter((c) => !c.is_uncategorized);
 
   function load() {
     return authFetch(`${API}/categories/`)
@@ -168,7 +175,7 @@ export default function HomeScreen({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, []));
 
   async function saveOrder(next) {
-    setCategories(next);
+    setCategories(uncategorized ? [...next, uncategorized] : next);
     try {
       const res = await authFetch(`${API}/categories/reorder/`, {
         method: "POST",
@@ -197,6 +204,19 @@ export default function HomeScreen({ navigation }) {
       setError("Could not delete the category");
     }
   }
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (editMode) {
+          setEditMode(false);
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [editMode])
+  );
 
   const inEdit = editMode && visible.length > 0;
 
@@ -244,24 +264,36 @@ export default function HomeScreen({ navigation }) {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {inEdit ? <Text style={styles.hint}>Hold a card, then drag to rearrange</Text> : null}
         {inEdit ? (
-          <Sortable.Grid
-            columns={2}
-            data={visible}
-            rowGap={12}
-            columnGap={12}
-            keyExtractor={(c) => String(c.id)}
-            scrollableRef={scrollRef}
-            onDragEnd={({ data }) => saveOrder(data)}
-            renderItem={({ item }) => (
-              <CategoryCard
-                category={item}
-                index={0}
-                editMode
-                inGrid
-                onDelete={() => setPendingDelete(item)}
-              />
-            )}
-          />
+          <>
+            <Sortable.Grid
+              columns={2}
+              data={sortable}
+              rowGap={12}
+              columnGap={12}
+              keyExtractor={(c) => String(c.id)}
+              scrollableRef={scrollRef}
+              onDragEnd={({ data }) => saveOrder(data)}
+              renderItem={({ item }) => (
+                <CategoryCard
+                  category={item}
+                  index={0}
+                  editMode
+                  inGrid
+                  onDelete={() => setPendingDelete(item)}
+                />
+              )}
+            />
+            {uncategorized ? (
+              <View style={styles.grid}>
+                <CategoryCard
+                  category={uncategorized}
+                  index={0}
+                  editMode
+                  onDelete={() => setPendingDelete(uncategorized)}
+                />
+              </View>
+            ) : null}
+          </>
         ) : (
           <View style={styles.grid}>
             {visible.map((c, i) => (

@@ -10,7 +10,7 @@ import { authFetch } from "../api";
 import Texture from "../components/Texture";
 import { useToast } from "../ToastContext";
 
-function DishTile({ dish, rank, letter, hero, onOpen }) {
+function DishTile({ dish, rank, letter, hero, plain, onOpen }) {
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(0);
   const anim = useRef(new Animated.Value(0)).current;
@@ -36,9 +36,11 @@ function DishTile({ dish, rank, letter, hero, onOpen }) {
       ) : (
         <Text style={styles.placeholder}>{letter}</Text>
       )}
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>#{rank}</Text>
-      </View>
+      {!plain ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>#{rank}</Text>
+        </View>
+      ) : null}
       <View style={styles.band}>
         <Text style={styles.dishName} numberOfLines={1}>{dish.restaurant}</Text>
         {label ? <Text style={styles.restaurant} numberOfLines={1}>{label}</Text> : null}
@@ -111,6 +113,7 @@ export default function CategoryScreen({ route, navigation }) {
   const scrollRef = useAnimatedRef();
   const { hidden, showUndo, commitNow } = useToast();
   const visibleDishes = dishes.filter((d) => !hidden.dish.includes(d.id));
+  const plain = !!category.is_uncategorized;
 
   function loadDishes() {
     return authFetch(`${API}/dishes/?category=${category.id}`)
@@ -224,7 +227,7 @@ export default function CategoryScreen({ route, navigation }) {
           )
         }
       >
-        <Pressable onPress = {goBack}>
+        <Pressable onPress = {goBack} style={{alignSelf: "flex-start"}}>
           <Text style={styles.back}>← Back</Text>
         </Pressable>
 
@@ -252,7 +255,7 @@ export default function CategoryScreen({ route, navigation }) {
         ) : (
           <View style={styles.titleRow}>
             <Text style={styles.title}>{name}</Text>
-            {!rearranging ? (
+            {!rearranging && !category.is_uncategorized ? (
               <Pressable onPress={() => { setDraft(name); setRenaming(true); }}>
                 <Text style={styles.pencil}>✎</Text>
               </Pressable>
@@ -264,14 +267,14 @@ export default function CategoryScreen({ route, navigation }) {
           <Text style={styles.sub}>
             {visibleDishes.length} {visibleDishes.length === 1 ? "dish" : "dishes"}
           </Text>
-          {visibleDishes.length > 1 ? (
+          {visibleDishes.length > 1 && !plain ? (
             rearranging ? (
               <View style={styles.rearrangeActions}>
-                <Pressable onPress={() => setRearranging(false)} disabled={saving}>
-                  <Text style={styles.rearrangeCancel}>Cancel</Text>
+                <Pressable style={styles.pillOutline} onPress={() => setRearranging(false)} disabled={saving}>
+                  <Text style={styles.pillOutlineText}>Cancel</Text>
                 </Pressable>
-                <Pressable onPress={saveOrder} disabled={saving}>
-                  <Text style={styles.rearrange}>{saving ? "Saving..." : "Done"}</Text>
+                <Pressable style={styles.pillFill} onPress={saveOrder} disabled={saving}>
+                  <Text style={styles.pillFillText}>{saving ? "Saving..." : "Done"}</Text>
                 </Pressable>
               </View>
             ) : (
@@ -326,16 +329,17 @@ export default function CategoryScreen({ route, navigation }) {
           </>
         ) : (
           <>
-            {visibleDishes[0] ? (
+            {!plain && visibleDishes[0] ? (
               <DishTile
                 dish={visibleDishes[0]} rank={1} letter={letter} hero
                 onOpen={() => navigation.navigate("Detail", { id: visibleDishes[0].id })}
               />
             ) : null}
             <View style={styles.grid}>
-              {visibleDishes.slice(1).map((d, i) => (
+              {(plain ? visibleDishes : visibleDishes.slice(1)).map((d, i) => (
                 <DishTile
-                  key={d.id} dish={d} rank={i + 2} letter={letter}
+                  key={d.id} dish={d} rank={plain ? 0 : i + 2} plain={plain}
+                  letter={plain ? d.restaurant.charAt(0).toUpperCase() : letter}
                   onOpen={() => navigation.navigate("Detail", { id: d.id })}
                 />
               ))}
@@ -346,8 +350,12 @@ export default function CategoryScreen({ route, navigation }) {
 
       {!rearranging ? (
         <Pressable
-          style={styles.addPill}
-          onPress={() => navigation.navigate("AddDish", { category: { id: category.id, name } })}
+        style={styles.addPill}
+        onPress={() =>
+          navigation.navigate("AddDish", {
+            category: { id: category.id, name, is_uncategorized: category.is_uncategorized },
+          })
+        }
         >
           <Text style={styles.addText}>+ Add dish</Text>
         </Pressable>
@@ -429,4 +437,11 @@ const styles = StyleSheet.create({
   rearrangeActions: { flexDirection: "row", alignItems: "center", gap: 18 },
   rearrangeCancel: { fontSize: 14, color: "#6B6054" },
   addText: { color: "#fff", fontSize: 15 },
+  pillOutline: {
+    backgroundColor: "#FFFBF3", borderWidth: 1, borderColor: "#D6C9B0", borderRadius: 18,
+    paddingHorizontal: 14, paddingVertical: 7,
+  },
+  pillOutlineText: { fontSize: 13, color: "#2B2622" },
+  pillFill: { backgroundColor: "#D9774F", borderRadius: 18, paddingHorizontal: 16, paddingVertical: 8 },
+  pillFillText: { fontSize: 13, color: "#fff" },  
 });

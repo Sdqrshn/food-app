@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View,
 } from "react-native";
@@ -34,14 +35,23 @@ export default function DetailScreen({ route, navigation }) {
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const highlight = route.params?.highlight;
   const toast = useToast();
 
   useFocusEffect(
     useCallback(() => {
       authFetch(`${API}/dishes/${id}/`)
-        .then((res) => res.json())
-        .then((data) => { setDish(data); setError(""); })
+        .then((res) => {
+          if (res.status === 404) {
+            navigation.goBack();
+            return null;
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data) { setDish(data); setError(""); }
+        })
         .catch(() => setError("Could not reach the server"));
     }, [id])
   );
@@ -75,7 +85,7 @@ export default function DetailScreen({ route, navigation }) {
     );
   }
 
-  const events = dish.history
+  const events = (dish.history || [])
     .map((h, i) => ({ h, text: describe(dish.history, i) }))
     .reverse();
 
@@ -83,9 +93,14 @@ export default function DetailScreen({ route, navigation }) {
     <View style={styles.screen}>
       <Texture />
       <ScrollView contentContainerStyle={styles.page}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Back</Text>
-        </Pressable>
+        <View style={styles.topRow}>
+          <Pressable onPress={() => navigation.goBack()}>
+            <Text style={[styles.back, { marginBottom: 0 }]}>← Back</Text>
+          </Pressable>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={14}>
+            <Ionicons name="ellipsis-vertical" size={20} color="#6B6054" />
+          </Pressable>
+        </View>
 
         <Pressable
           onPress={() => dish.photo && setViewing(true)}
@@ -109,7 +124,9 @@ export default function DetailScreen({ route, navigation }) {
 
         <View style={styles.chips}>
           {dish.price ? <Text style={styles.chip}>₹{Number(dish.price)}</Text> : null}
-          <Text style={styles.chip}>#{dish.rank} of {dish.total}</Text>
+          {!dish.is_uncategorized ? (
+            <Text style={styles.chip}>#{dish.rank} of {dish.total}</Text>
+          ) : null}
           <Text style={styles.chip}>Tried {triedDate(dish.date_tried)}</Text>
         </View>
 
@@ -120,38 +137,37 @@ export default function DetailScreen({ route, navigation }) {
           runKey={dish.id}
           style={styles.note}
         />
-
-        <Text style={styles.section}>Rank history</Text>
-        {events.length === 0 ? (
-          <Text style={styles.sub}>No history yet</Text>
-        ) : (
+        {!dish.is_uncategorized ? (
           <>
-            <ScrollView style={styles.historyBox} nestedScrollEnabled>
-              <View style={styles.timeline}>
-                {events.map(({ h, text }, i) => (
-                  <View key={i} style={styles.event}>
-                    <View style={styles.dot} />
-                    <Text style={styles.eventText}>{shortDate(h.recorded_at)}: {text}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-            {events.length > 3 ? <Text style={styles.moreHint}>Scroll for older entries</Text> : null}
+          <Text style={styles.section}>Rank history</Text>
+          {events.length === 0 ? (
+            <Text style={styles.sub}>No history yet</Text>
+          ) : (
+            <>
+              <ScrollView style={styles.historyBox} nestedScrollEnabled>
+                <View style={styles.timeline}>
+                  {events.map(({ h, text }, i) => (
+                    <View key={i} style={styles.event}>
+                      <View style={styles.dot} />
+                      <Text style={styles.eventText}>{shortDate(h.recorded_at)}: {text}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+              {events.length > 3 ? <Text style={styles.moreHint}>Scroll for older entries</Text> : null}
+            </>
+          )}
           </>
-        )}
+        ) : null}
       </ScrollView>
 
-      <View style={styles.bar}>
-        <Pressable style={styles.primary} onPress={() => navigation.navigate("Matchup", { dish })}>
-          <Text style={styles.primaryText}>Re-rank</Text>
-        </Pressable>
-        <Pressable style={styles.outline} onPress={() => navigation.navigate("AddDish", { dish })}>
-          <Text style={styles.outlineText}>Edit</Text>
-        </Pressable>
-        <Pressable style={styles.deleteBtn} onPress={() => setConfirming(true)}>
-          <Text style={styles.deleteText}>Delete</Text>
-        </Pressable>
-      </View>
+      {!dish.is_uncategorized ? (
+        <View style={styles.bar}>
+          <Pressable style={styles.primary} onPress={() => navigation.navigate("Matchup", { dish })}>
+            <Text style={styles.primaryText}>Re-rank</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <Modal
         visible={viewing}
@@ -165,6 +181,31 @@ export default function DetailScreen({ route, navigation }) {
             <Image source={{ uri: dish.photo }} style={styles.full} resizeMode="contain" />
           ) : null}
           <Text style={styles.close}>✕</Text>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={menuOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={{ flex: 1 }} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menu}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => { setMenuOpen(false); navigation.navigate("ChooseCategory", { dish }); }}
+            >
+              <Ionicons name={dish.is_uncategorized ? "folder-open-outline" : "swap-horizontal-outline"} size={18} color="#2B2622" />
+              <Text style={styles.menuText}>{dish.is_uncategorized ? "Sort into a category" : "Move"}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => { setMenuOpen(false); navigation.navigate("AddDish", { dish }); }}
+            >
+              <Ionicons name="create-outline" size={18} color="#2B2622" />
+              <Text style={styles.menuText}>Edit</Text>
+            </Pressable>
+            <Pressable style={styles.menuItem} onPress={() => { setMenuOpen(false); setConfirming(true); }}>
+              <Ionicons name="trash-outline" size={18} color="#A32D2D" />
+              <Text style={[styles.menuText, { color: "#A32D2D" }]}>Delete</Text>
+            </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -232,4 +273,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10, marginLeft: 8,
   },
   deleteText: { color: "#A32D2D", fontSize: 14 },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  menu: {
+    position: "absolute", top: 96, right: 20, minWidth: 150, backgroundColor: "#FFFBF3", borderRadius: 14,
+    borderWidth: 1, borderColor: "#E8DCC4", paddingVertical: 6, elevation: 8,
+    shadowColor: "#2B2622", shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  menuText: { fontSize: 15, color: "#2B2622" },
 });

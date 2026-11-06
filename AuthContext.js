@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useEffect, useState } from "react";
+import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { API } from "./config";
 import { authFetch, setToken, setUnauthorizedHandler } from "./api";
@@ -32,18 +33,32 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  useEffect(() => {
+  const lastCheck = useRef(0);
+
+  const checkServer = useCallback(() => {
+    lastCheck.current = Date.now();
     let done = false;
-    const timer = setTimeout(() => { if (!done) setWaking(true); }, 3000);
-    fetch(`${API}/health/`)
+    const timer = setTimeout(() => { if (!done) setWaking(true); }, 800);
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const hardStop = setTimeout(() => controller && controller.abort(), 70000);
+    fetch(`${API}/health/`, controller ? { signal: controller.signal } : undefined)
       .catch(() => {})
       .finally(() => {
         done = true;
         clearTimeout(timer);
+        clearTimeout(hardStop);
         setWaking(false);
       });
-    return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => { checkServer(); }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && Date.now() - lastCheck.current > 5 * 60 * 1000) checkServer();
+    });
+    return () => sub.remove();
+  }, [checkServer]);
 
   async function authenticate(path, body) {
     try {
