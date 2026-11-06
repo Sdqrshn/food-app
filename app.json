@@ -13,7 +13,7 @@
       "package": "com.hartlabs.foodranker",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#D9774F"
+        "backgroundColor": "#F6F0E4"
       }
     },
     "web": {
