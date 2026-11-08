@@ -12,8 +12,7 @@
     "android": {
       "package": "com.hartlabs.foodranker",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F6F0E4"
+        "foregroundImage": "./assets/adaptive-icon.png"
       }
     },
     "web": {
