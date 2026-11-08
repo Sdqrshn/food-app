@@ -10,7 +10,7 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
-  const [waking, setWaking] = useState(false);
+  const [waking, setWaking] = useState(true);
 
   async function clear() {
     setToken(null);
@@ -35,27 +35,27 @@ export function AuthProvider({ children }) {
 
   const lastCheck = useRef(0);
 
-  const checkServer = useCallback(() => {
+  const checkServer = useCallback((first) => {
     lastCheck.current = Date.now();
     let done = false;
-    const timer = setTimeout(() => { if (!done) setWaking(true); }, 800);
+    const timer = first ? null : setTimeout(() => { if (!done) setWaking(true); }, 800);
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const hardStop = setTimeout(() => controller && controller.abort(), 70000);
     fetch(`${API}/health/`, controller ? { signal: controller.signal } : undefined)
       .catch(() => {})
       .finally(() => {
         done = true;
-        clearTimeout(timer);
+        if (timer) clearTimeout(timer);
         clearTimeout(hardStop);
         setWaking(false);
       });
   }, []);
 
-  useEffect(() => { checkServer(); }, []);
+  useEffect(() => { checkServer(true); }, []);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active" && Date.now() - lastCheck.current > 5 * 60 * 1000) checkServer();
+      if (state === "active" && Date.now() - lastCheck.current > 5 * 60 * 1000) checkServer(false);
     });
     return () => sub.remove();
   }, [checkServer]);

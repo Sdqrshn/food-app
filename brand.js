@@ -1,4 +1,4 @@
 export const BRAND = {
-  name: "Bite Rank",
+  name: "Forkd",
   motto: "Taste it. Rank it.",
 };
