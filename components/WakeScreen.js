@@ -30,7 +30,7 @@ export default function WakeScreen({ visible }) {
       <View style={styles.wrap}>
         <Texture />
         <Animated.Image
-          source={require("../assets/icon.png")}
+          source={require("../assets/logo.png")}
           style={[styles.logo, { transform: [{ scale }] }]}
         />
         <Text style={styles.name}>{BRAND.name}</Text>

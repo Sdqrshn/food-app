@@ -82,6 +82,7 @@ function NewCategory({ onAdded }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const { serverEpoch } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -172,7 +173,7 @@ export default function HomeScreen({ navigation }) {
       .finally(() => setLoaded(true));
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [serverEpoch]));
 
   async function saveOrder(next) {
     setCategories(uncategorized ? [...next, uncategorized] : next);

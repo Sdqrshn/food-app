@@ -10,6 +10,7 @@ import { API } from "../config";
 import { authFetch } from "../api";
 import { useToast } from "../ToastContext";
 import { useTabBarScroll } from "../components/FloatingTabBar";
+import { useAuth } from "../AuthContext";
 import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
 
@@ -152,6 +153,7 @@ export default function ToEatScreen({ navigation }) {
   const [rearranging, setRearranging] = useState(false);
   const [draft, setDraft] = useState([]);
   const [saving, setSaving] = useState(false);
+  const { serverEpoch } = useAuth();
 
   const visible = items.filter((i) => !hidden.toEat.includes(i.id));
   const groups = groupItems(visible);
@@ -168,7 +170,7 @@ export default function ToEatScreen({ navigation }) {
       .finally(() => setLoaded(true));
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [serverEpoch]));
 
   useFocusEffect(
     useCallback(() => {

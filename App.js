@@ -20,6 +20,7 @@ import ToEatFormScreen from "./screens/ToEatFormScreen";
 import ChooseCategoryScreen from "./screens/ChooseCategoryScreen";
 import SavedScreen from "./screens/SavedScreen";
 import WakeScreen from "./components/WakeScreen";
+import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,6 +73,7 @@ function Root() {
               <Stack.Screen name="Detail" component={DetailScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
               <Stack.Screen name="ChooseCategory" component={ChooseCategoryScreen} />
+              <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
             </>
           ) : (
             <Stack.Screen name="Auth" component={AuthScreen} />

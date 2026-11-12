@@ -9,6 +9,7 @@ import { API, COLORS } from "../config";
 import { authFetch } from "../api";
 import Texture from "../components/Texture";
 import { useToast } from "../ToastContext";
+import { useAuth } from "../AuthContext";
 
 function DishTile({ dish, rank, letter, hero, plain, onOpen }) {
   const [open, setOpen] = useState(false);
@@ -109,7 +110,10 @@ export default function CategoryScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [rearranging, setRearranging] = useState(false);
   const [draft, setDraft] = useState(category.name);
-  const [rankDraft, setRankDraft] = useState([]);  const [saving, setSaving] = useState(false);
+  const [rankDraft, setRankDraft] = useState([]);  
+  const { serverEpoch } = useAuth();
+  
+  const [saving, setSaving] = useState(false);
   const scrollRef = useAnimatedRef();
   const { hidden, showUndo, commitNow } = useToast();
   const visibleDishes = dishes.filter((d) => !hidden.dish.includes(d.id));
@@ -122,7 +126,7 @@ export default function CategoryScreen({ route, navigation }) {
       .catch(() => setError("Could not reach the server"));
   }
 
-  useFocusEffect(useCallback(() => { loadDishes(); }, []));
+  useFocusEffect(useCallback(() => { loadDishes(); }, [serverEpoch]));
 
   async function saveName() {
     const trimmed = draft.trim();

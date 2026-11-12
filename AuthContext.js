@@ -1,16 +1,23 @@
-import { createContext, useCallback, useContext, useRef, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { API } from "./config";
+import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
+import { API, GOOGLE_WEB_CLIENT_ID } from "./config";
 import { authFetch, setToken, setUnauthorizedHandler } from "./api";
+
+GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [waking, setWaking] = useState(true);
+  const [serverEpoch, setServerEpoch] = useState(0);
+  const lastCheck = useRef(0);
 
   async function clear() {
     setToken(null);
@@ -33,8 +40,6 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const lastCheck = useRef(0);
-
   const checkServer = useCallback((first) => {
     lastCheck.current = Date.now();
     let done = false;
@@ -48,6 +53,7 @@ export function AuthProvider({ children }) {
         if (timer) clearTimeout(timer);
         clearTimeout(hardStop);
         setWaking(false);
+        setServerEpoch((n) => n + 1);
       });
   }, []);
 
@@ -60,33 +66,6 @@ export function AuthProvider({ children }) {
     return () => sub.remove();
   }, [checkServer]);
 
-  async function authenticate(path, body) {
-    try {
-      const res = await fetch(`${API}/auth/${path}/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, errors: data };
-      setToken(data.token);
-      await SecureStore.setItemAsync("auth", JSON.stringify({ token: data.token, user: data.user }));
-      setUser(data.user);
-      return { ok: true };
-    } catch {
-      return { ok: false, errors: { error: "Could not reach the server." } };
-    }
-  }
-
-  const signIn = (email, password) => authenticate("login", { email, password });
-  const signUp = (email, password, displayName) =>
-    authenticate("signup", { email, password, display_name: displayName });
-
-  async function signOut() {
-    try { await authFetch(`${API}/auth/logout/`, { method: "POST" }); } catch {}
-    await clear();
-  }
-
   async function persist(patch) {
     try {
       const saved = JSON.parse((await SecureStore.getItemAsync("auth")) || "{}");
@@ -94,11 +73,40 @@ export function AuthProvider({ children }) {
     } catch {}
   }
 
+  async function signInWithGoogle() {
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      const idToken = response?.data?.idToken ?? response?.idToken;
+      if (!idToken) return { ok: false, cancelled: true };
+      const res = await fetch(`${API}/auth/google/`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ id_token: idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || "Could not sign you in." };
+      setToken(data.token);
+      await SecureStore.setItemAsync("auth", JSON.stringify({ token: data.token, user: data.user }));
+      setUser(data.user);
+      return { ok: true };
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) return { ok: false, cancelled: true };
+      return { ok: false, error: "Google sign-in failed. Please try again." };
+    }
+  }
+
+  async function signOut() {
+    try { await authFetch(`${API}/auth/logout/`, { method: "POST" }); } catch {}
+    try { await GoogleSignin.signOut(); } catch {}
+    await clear();
+  }
+
   async function updateName(displayName) {
     try {
       const res = await authFetch(`${API}/auth/me/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_HEADERS,
         body: JSON.stringify({ display_name: displayName }),
       });
       const data = await res.json();
@@ -111,41 +119,26 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function changePassword(current, next) {
+  async function deleteMyAccount() {
     try {
-      const res = await authFetch(`${API}/auth/change-password/`, {
+      const res = await authFetch(`${API}/auth/delete/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: current, new_password: next }),
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ confirm: true }),
       });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, errors: data };
-      setToken(data.token);
-      await persist({ token: data.token });
-      return { ok: true };
-    } catch {
-      return { ok: false, errors: { error: "Could not reach the server." } };
-    }
-  }
-
-  async function deleteAccount(password) {
-    try {
-      const res = await authFetch(`${API}/auth/delete-account/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, errors: data };
+      if (!res.ok) return { ok: false };
+      try { await GoogleSignin.signOut(); } catch {}
       await clear();
       return { ok: true };
     } catch {
-      return { ok: false, errors: { error: "Could not reach the server." } };
+      return { ok: false };
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, ready, waking, signIn, signUp, signOut, updateName, changePassword, deleteAccount }}>
+    <AuthContext.Provider
+      value={{ user, ready, waking, serverEpoch, signInWithGoogle, signOut, updateName, deleteMyAccount }}
+    >
       {children}
     </AuthContext.Provider>
   );
