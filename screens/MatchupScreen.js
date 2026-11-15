@@ -1,16 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Animated, Image, Pressable, StyleSheet, Text, View, useWindowDimensions,
+} from "react-native";
 import { API, COLORS } from "../config";
-import Texture from "../components/Texture";
 import { authFetch } from "../api";
+import Texture from "../components/Texture";
 
-function Card({ dish, isNew, anim, onPress, disabled }) {
+// Tweak the look here
+const CARD_HEIGHT_RATIO = 0.27; // each card's height as a share of the screen height
+const CARD_GAP = 22;            // space between the cards (the VS badge sits in it)
+const CARD_RADIUS = 22;
+
+function Card({ dish, isNew, anim, onPress, disabled, height }) {
   return (
     <Animated.View style={{ opacity: anim.opacity, transform: [{ scale: anim.scale }] }}>
       <Pressable
         onPress={onPress}
         disabled={disabled}
-        style={[styles.card, { backgroundColor: COLORS[dish.id % COLORS.length] }]}
+        style={[styles.card, { height, backgroundColor: COLORS[dish.id % COLORS.length] }]}
       >
         {dish.photo ? (
           <Image source={{ uri: dish.photo }} style={StyleSheet.absoluteFill} />
@@ -31,6 +38,9 @@ function Card({ dish, isNew, anim, onPress, disabled }) {
 
 export default function MatchupScreen({ route, navigation }) {
   const { dish } = route.params;
+  const { height: screenHeight } = useWindowDimensions();
+  const cardHeight = Math.min(300, Math.max(160, Math.round(screenHeight * CARD_HEIGHT_RATIO)));
+
   const [answers, setAnswers] = useState([]);
   const [opponent, setOpponent] = useState(null);
   const [round, setRound] = useState(1);
@@ -111,15 +121,19 @@ export default function MatchupScreen({ route, navigation }) {
       {opponent ? (
         <View style={styles.arena}>
           <Text style={styles.question}>Which did you like more?</Text>
-          <Card dish={dish} isNew anim={newAnim} disabled={busy} onPress={() => pick("win")} />
-          <View style={styles.vs}><Text style={styles.vsText}>VS</Text></View>
-          <Card dish={opponent} anim={oldAnim} disabled={busy} onPress={() => pick("lose")} />
+          <Card dish={dish} isNew anim={newAnim} height={cardHeight} disabled={busy} onPress={() => pick("win")} />
+          <View style={styles.vsWrap}>
+            <View style={styles.vs}><Text style={styles.vsText}>VS</Text></View>
+          </View>
+          <Card dish={opponent} anim={oldAnim} height={cardHeight} disabled={busy} onPress={() => pick("lose")} />
           <Pressable style={styles.tie} disabled={busy} onPress={() => pick("tie")}>
             <Text style={styles.tieText}>Can't decide</Text>
           </Pressable>
         </View>
       ) : !error ? (
-        <Text style={styles.sub}>Finding the right spot...</Text>
+        <View style={styles.arena}>
+          <Text style={styles.waiting}>Finding the right spot...</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -131,35 +145,38 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "500", color: "#2B2622" },
   sub: { fontSize: 13, color: "#6B6054", marginTop: 2, marginBottom: 12 },
   error: { color: "#A32D2D", marginVertical: 12 },
-  arena: { marginTop: 8 },
-  question: { fontSize: 15, color: "#2B2622", textAlign: "center", marginBottom: 14 },
-  card: { height: 150, borderRadius: 18, overflow: "hidden" },
+  arena: { flex: 1, justifyContent: "center", paddingBottom: 30 },
+  waiting: { fontSize: 14, color: "#6B6054", textAlign: "center" },
+  question: { fontSize: 17, color: "#2B2622", textAlign: "center", marginBottom: 16 },
+  card: { borderRadius: CARD_RADIUS, overflow: "hidden" },
   placeholder: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0, textAlign: "center",
-    textAlignVertical: "center", fontSize: 52, color: "rgba(255,251,243,0.5)",
+    textAlignVertical: "center", fontSize: 80, color: "rgba(255,251,243,0.5)",
   },
   badge: {
-    position: "absolute", top: 8, left: 8, backgroundColor: "#FFFBF3",
-    borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
+    position: "absolute", top: 12, left: 12, backgroundColor: "#FFFBF3",
+    borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3,
   },
-  badgeText: { fontSize: 12, fontWeight: "500", color: "#2B2622" },
+  badgeText: { fontSize: 13, fontWeight: "500", color: "#2B2622" },
   band: {
     position: "absolute", left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(43,38,34,0.8)", paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: "rgba(43,38,34,0.8)", paddingHorizontal: 16, paddingVertical: 12,
   },
-  name: { fontSize: 15, fontWeight: "500", color: "#FFFBF3" },
-  rest: { fontSize: 12, color: "#E6DCCB" },
+  name: { fontSize: 20, fontWeight: "500", color: "#FFFBF3" },
+  rest: { fontSize: 14, color: "#E6DCCB", marginTop: 1 },
+  vsWrap: {
+    height: CARD_GAP, alignItems: "center", justifyContent: "center", zIndex: 2, elevation: 3,
+  },
   vs: {
-    alignSelf: "center", width: 36, height: 36, borderRadius: 18, backgroundColor: "#FFFBF3",
-    alignItems: "center", justifyContent: "center", marginVertical: -18, zIndex: 2, elevation: 2,
-    borderWidth: 2, borderColor: "#F6F0E4",
+    width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFBF3",
+    alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#F6F0E4",
   },
-  vsText: { fontSize: 12, fontWeight: "500", color: "#2B2622" },
+  vsText: { fontSize: 13, fontWeight: "500", color: "#2B2622" },
   tie: {
-    alignSelf: "center", marginTop: 26, borderWidth: 1, borderColor: "#CDBFA6",
-    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8,
+    alignSelf: "center", marginTop: 24, borderWidth: 1, borderColor: "#CDBFA6",
+    borderRadius: 24, paddingHorizontal: 30, paddingVertical: 12,
   },
-  tieText: { fontSize: 14, color: "#2B2622" },
+  tieText: { fontSize: 15, color: "#2B2622" },
   star: { fontSize: 44, color: "#D9774F" },
   big: { fontSize: 24, fontWeight: "500", color: "#2B2622", marginTop: 8 },
   done: { backgroundColor: "#D9774F", borderRadius: 22, paddingHorizontal: 34, paddingVertical: 11, marginTop: 22 },

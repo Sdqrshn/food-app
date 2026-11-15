@@ -3,6 +3,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, LayoutAnimation, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../AuthContext";
 import { PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
@@ -16,6 +17,7 @@ export default function AccountScreen({ navigation }) {
   const [error, setError] = useState("");
   const [nameDraft, setNameDraft] = useState(user?.display_name ?? "");
   const [loggingOut, setLoggingOut] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const initial = (user?.display_name || "?").charAt(0).toUpperCase();
 
@@ -47,7 +49,10 @@ export default function AccountScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <Texture />
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        contentContainerStyle={[styles.page, { paddingBottom: insets.bottom + 130}]} 
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.main}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backWrap}>
             <Text style={styles.back}>← Back</Text>

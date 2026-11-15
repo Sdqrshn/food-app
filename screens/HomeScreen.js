@@ -82,7 +82,6 @@ function NewCategory({ onAdded }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
-  const { serverEpoch } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -155,6 +154,7 @@ export default function HomeScreen({ navigation }) {
   const [error, setError] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const { serverEpoch } = useAuth();
   const scrollRef = useAnimatedRef();
   const { user } = useAuth();
   const onScroll = useTabBarScroll();
