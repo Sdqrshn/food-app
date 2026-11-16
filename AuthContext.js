@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { API, GOOGLE_WEB_CLIENT_ID } from "./config";
-import { authFetch, setToken, setUnauthorizedHandler } from "./api";
+import { authFetch, setToken, setUnauthorizedHandler, uploadForm } from "./api";
 
 GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 
@@ -135,9 +135,37 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function changePhoto(asset) {
+    const form = new FormData();
+    form.append("photo", { uri: asset.uri, name: "profile.jpg", type: asset.mimeType || "image/jpeg" });
+    try {
+      const { ok, data } = await uploadForm("POST", `${API}/auth/photo/`, form);
+      if (!ok) return { ok: false };
+      setUser(data);
+      await persist({ user: data });
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  async function removePhoto() {
+    try {
+      const res = await authFetch(`${API}/auth/photo/`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) return { ok: false };
+      setUser(data);
+      await persist({ user: data });
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, ready, waking, serverEpoch, signInWithGoogle, signOut, updateName, deleteMyAccount }}
+      value={{ user, ready, waking, serverEpoch, 
+      signInWithGoogle, signOut, updateName, deleteMyAccount, changePhoto, removePhoto }}
     >
       {children}
     </AuthContext.Provider>

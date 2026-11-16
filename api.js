@@ -36,3 +36,21 @@ export async function authFetch(url, options = {}, retry = true) {
     throw error;
   }
 }
+
+export function uploadForm(method, url, form) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    xhr.timeout = 60000;
+    const auth = getAuthHeader();
+    if (auth.Authorization) xhr.setRequestHeader("Authorization", auth.Authorization);
+    xhr.onload = () => {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch {}
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, data });
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.ontimeout = () => reject(new Error("Timed out"));
+    xhr.send(form);
+  });
+}

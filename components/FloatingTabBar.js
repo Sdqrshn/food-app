@@ -7,6 +7,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../AuthContext";
+import Avatar from "./Avatar";
 
 const SLOT_W = 76;
 const SLOT_H = 50;
@@ -17,14 +18,6 @@ const BOTTOM_GAP = 16;
 
 const ACTIVE = "#D9774F";
 const INACTIVE = "#8C8073";
-
-// EDIT THIS ONE LINE: return the first letter HomeScreen shows in the top-left avatar
-   function useProfileInitial() {
-     const { user } = useAuth();
-     return (user?.display_name || "?").charAt(0).toUpperCase();
-   }
-
-/* ---------- show/hide state shared with screens ---------- */
 
 const TabBarContext = createContext(null);
 
@@ -77,8 +70,9 @@ const META = {
   Account: { label: "Profile" },
 };
 
-function TabItem({ name, focused, onPress, initial }) {
+function TabItem({ name, focused, onPress }) {
   const meta = META[name] || { label: name, on: "ellipse", off: "ellipse-outline" };
+  const { user } = useAuth();
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -97,8 +91,8 @@ function TabItem({ name, focused, onPress, initial }) {
     >
       <Animated.View style={iconStyle}>
         {name === "Account" ? (
-          <View style={[styles.avatar, !focused && { opacity: 0.8 }]}>
-            <Text style={styles.avatarText}>{initial}</Text>
+          <View style={{ opacity: focused ? 1 : 0.8}}>
+            <Avatar user={user} size={30} />
           </View>
         ) : (
           <Ionicons name={focused ? meta.on : meta.off} size={25} color={focused ? ACTIVE : INACTIVE} />
@@ -111,7 +105,6 @@ function TabItem({ name, focused, onPress, initial }) {
 export default function FloatingTabBar({ state, navigation }) {
   const ctx = useContext(TabBarContext);
   const insets = useSafeAreaInsets();
-  const initial = useProfileInitial();
   const index = state.index;
 
   const x = useSharedValue(index * SLOT_W);
@@ -171,7 +164,7 @@ export default function FloatingTabBar({ state, navigation }) {
             if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
           };
           return (
-            <TabItem key={route.key} name={route.name} focused={focused} onPress={onPress} initial={initial} />
+            <TabItem key={route.key} name={route.name} focused={focused} onPress={onPress} />
           );
         })}
       </View>
@@ -193,9 +186,4 @@ const styles = StyleSheet.create({
     borderRadius: SLOT_H / 2, backgroundColor: "#F8DDD0",
   },
   slot: { width: SLOT_W, height: SLOT_H, alignItems: "center", justifyContent: "center" },
-  avatar: {
-    width: 30, height: 30, borderRadius: 15, backgroundColor: ACTIVE,
-    alignItems: "center", justifyContent: "center",
-  },
-  avatarText: { color: "#fff", fontSize: 14, fontWeight: "500" },
 });

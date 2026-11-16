@@ -4,13 +4,17 @@ import {
   StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../AuthContext";
 import { PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
+import Avatar from "../components/Avatar";
+import PhotoSheet from "../components/PhotoSheet";
+import { shrink } from "../imageTools";
 
 export default function AccountScreen({ navigation }) {
-  const { user, signOut, updateName } = useAuth();
+  const { user, signOut, updateName, changePhoto, removePhoto } = useAuth();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,7 +23,39 @@ export default function AccountScreen({ navigation }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const initial = (user?.display_name || "?").charAt(0).toUpperCase();
+  const [sheet, setSheet] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+
+  async function pickPhoto(fromCamera) {
+    setSheet(false);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    setPhotoError("");
+    const options = { allowsEditing: true, aspect: [1, 1], quality: 0.8 };
+    let result;
+    if (fromCamera) {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return setPhotoError("Camera permission is needed");
+      result = await ImagePicker.launchCameraAsync(options);
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync({ ...options, mediaTypes: ["images"] });
+    }
+    if (result.canceled) return;
+    setPhotoBusy(true);
+    const small = await shrink(result.assets[0], 512);
+    const done = await changePhoto(small);
+    setPhotoBusy(false);
+    if (!done.ok) setPhotoError("Could not update your photo. Try again.");
+  }
+
+  async function confirmRemove() {
+    setRemoving(false);
+    setPhotoBusy(true);
+    const done = await removePhoto();
+    setPhotoBusy(false);
+    if (!done.ok) setPhotoError("Could not remove your photo. Try again.");
+  }
 
   function toggle() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -59,9 +95,10 @@ export default function AccountScreen({ navigation }) {
           </Pressable>
 
           <View style={styles.profile}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
+            <View style={styles.avatarWrap}>
+              <Avatar user={user} size={96} pencil busy={photoBusy} onPress={() => setSheet(true)} />
             </View>
+            {photoError ? <Text style={styles.photoError}>{photoError}</Text> : null}
             <Text style={styles.name}>{user?.display_name}</Text>
             <Text style={styles.email}>{user?.email}</Text>
           </View>
@@ -108,6 +145,23 @@ export default function AccountScreen({ navigation }) {
         </Pressable>
       </ScrollView>
 
+      <PhotoSheet
+        visible={sheet}
+        hasPhoto={!!user?.photo}
+        onCamera={() => pickPhoto(true)}
+        onGallery={() => pickPhoto(false)}
+        onRemove={() => { setSheet(false); setRemoving(true); }}
+        onClose={() => setSheet(false)}
+      />
+      <ConfirmModal
+        visible={removing}
+        title="Remove photo?"
+        message="Your profile will show a letter instead."
+        confirmText="Remove"
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoving(false)}
+      />
+
       <ConfirmModal
         visible={loggingOut}
         title="Log out?"
@@ -127,11 +181,8 @@ const styles = StyleSheet.create({
   backWrap: { alignSelf: "flex-start", marginBottom: 12 },
   back: { fontSize: 15, color: "#6B6054" },
   profile: { alignItems: "center", marginTop: 12, marginBottom: 28 },
-  avatar: {
-    width: 84, height: 84, borderRadius: 42, backgroundColor: "#D9774F",
-    alignItems: "center", justifyContent: "center", marginBottom: 12,
-  },
-  avatarText: { color: "#fff", fontSize: 36, fontWeight: "500" },
+  avatarWrap: { marginBottom: 12 },
+  photoError: { color: "#A32D2D", fontSize: 12, marginBottom: 8 },
   name: { fontSize: 22, fontWeight: "500", color: "#2B2622" },
   email: { fontSize: 13, color: "#6B6054", marginTop: 2 },
   card: { backgroundColor: "#FFFBF3", borderRadius: 16, overflow: "hidden" },
