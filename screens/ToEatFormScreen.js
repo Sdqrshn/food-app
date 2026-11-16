@@ -36,6 +36,7 @@ export default function ToEatFormScreen({ route, navigation }) {
   const [note, setNote] = useState(item?.note ?? "");
   const [placeId, setPlaceId] = useState(item?.place_id ?? "");
   const [mapLink, setMapLink] = useState(item?.map_link ?? "");
+  const [mapFocused, setMapFocused] = useState(false);
   const [catText, setCatText] = useState(item?.category_name ?? "");
   const [catId, setCatId] = useState(item?.category ?? null);
   const [categories, setCategories] = useState([]);
@@ -215,6 +216,9 @@ export default function ToEatFormScreen({ route, navigation }) {
           keyboardType="url"
           autoCapitalize="none"
           autoCorrect={false}
+          onFocus={() => setMapFocused(true)}
+          onBlur={() => setMapFocused(false)}
+          selection={mapFocused ? undefined : { start: 0, end: 0 }}
           error={errors.mapLink}
         />
 

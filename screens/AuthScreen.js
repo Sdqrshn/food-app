@@ -6,17 +6,17 @@ import Texture from "../components/Texture";
 import { useAuth } from "../AuthContext";
 
 export default function AuthScreen() {
-  const { signInWithGoogle } = useAuth();
-  const [busy, setBusy] = useState(false);
+  const { signInWithGoogle, signInAsGuest } = useAuth();
+  const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
 
-  async function go() {
-    setBusy(true);
+  async function run(kind, action) {
+    setBusy(kind);
     setError("");
-    const result = await signInWithGoogle();
+    const result = await action();
     if (!result.ok) {
       if (!result.cancelled) setError(result.error);
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -30,8 +30,8 @@ export default function AuthScreen() {
       </View>
       <View style={styles.bottom}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Pressable style={styles.button} onPress={go} disabled={busy}>
-          {busy ? (
+        <Pressable style={styles.button} onPress={() => run("google", signInWithGoogle)} disabled={!!busy}>
+          {busy === "google" ? (
             <ActivityIndicator color="#2B2622" />
           ) : (
             <>
@@ -40,7 +40,14 @@ export default function AuthScreen() {
             </>
           )}
         </Pressable>
-        <Text style={styles.note}>Your rankings are tied to your Google account.</Text>
+        <Pressable style={styles.guest} onPress={() => run("guest", signInAsGuest)} disabled={!!busy}>
+          {busy === "guest" ? (
+            <ActivityIndicator color="#A6492F" />
+          ) : (
+            <Text style={styles.guestText}>Continue as guest</Text>
+          )}
+        </Pressable>
+        <Text style={styles.note}>Guest data is removed when you log out.</Text>
       </View>
     </View>
   );
@@ -59,5 +66,7 @@ const styles = StyleSheet.create({
     borderRadius: 26, backgroundColor: "#FFFBF3", borderWidth: 1, borderColor: "#D6C9B0",
   },
   buttonText: { fontSize: 16, color: "#2B2622", fontWeight: "500" },
-  note: { fontSize: 12, color: "#8C8073", textAlign: "center", marginTop: 12 },
+  guest: { alignItems: "center", justifyContent: "center", height: 48, marginTop: 6 },
+  guestText: { fontSize: 15, color: "#A6492F" },
+  note: { fontSize: 12, color: "#8C8073", textAlign: "center", marginTop: 4 },
 });

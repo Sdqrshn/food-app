@@ -21,6 +21,7 @@ import ChooseCategoryScreen from "./screens/ChooseCategoryScreen";
 import SavedScreen from "./screens/SavedScreen";
 import WakeScreen from "./components/WakeScreen";
 import DeleteAccountScreen from "./screens/DeleteAccountScreen";
+import WelcomeScreen from "./screens/WelcomeScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -58,7 +59,11 @@ function Root() {
         <Stack.Navigator
           screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#F6F0E4" } }}
         >
-          {user ? (
+          {!user ? (
+            <Stack.Screen name="Auth" component={AuthScreen} />
+          ) : user.welcomed === false ? (
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          ) : (
             <>
               <Stack.Screen name="Home" component={Tabs} />
               <Stack.Screen name="Category" component={CategoryScreen} />
@@ -75,8 +80,6 @@ function Root() {
               <Stack.Screen name="ChooseCategory" component={ChooseCategoryScreen} />
               <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
             </>
-          ) : (
-            <Stack.Screen name="Auth" component={AuthScreen} />
           )}
         </Stack.Navigator>
       </NavigationContainer>

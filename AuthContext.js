@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { API, GOOGLE_WEB_CLIENT_ID } from "./config";
-import { authFetch, setToken, setUnauthorizedHandler, uploadForm } from "./api";
+import { authFetch, getToken, setToken, setUnauthorizedHandler, uploadForm } from "./api";
 
 GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 
@@ -82,7 +82,7 @@ export function AuthProvider({ children }) {
       const res = await fetch(`${API}/auth/google/`, {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ id_token: idToken }),
+        body: JSON.stringify({ id_token: idToken, guest_token: user?.is_guest ? getToken() : undefined }),
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.error || "Could not sign you in." };
@@ -162,9 +162,41 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function finishWelcome(displayName) {
+    try {
+      const res = await authFetch(`${API}/auth/welcome/`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, errors: data };
+      setUser(data);
+      await persist({ user: data });
+      return { ok: true };
+    } catch {
+      return { ok: false, errors: { error: "Could not reach the server." } };
+    }
+  }
+
+  async function signInAsGuest() {
+    try {
+      const res = await fetch(`${API}/auth/guest/`, { method: "POST", headers: JSON_HEADERS });
+      if (res.status === 429) return { ok: false, error: "Too many guest sessions from this network. Try again later." };
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || "Could not start a guest session." };
+      setToken(data.token);
+      await SecureStore.setItemAsync("auth", JSON.stringify({ token: data.token, user: data.user }));
+      setUser(data.user);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Could not reach the server. It may still be waking up, so try again in a moment." };
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, ready, waking, serverEpoch, 
+      value={{ user, ready, waking, serverEpoch, finishWelcome, signInAsGuest,
       signInWithGoogle, signOut, updateName, deleteMyAccount, changePhoto, removePhoto }}
     >
       {children}

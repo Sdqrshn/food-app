@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../AuthContext";
 import { PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
@@ -14,7 +15,7 @@ import PhotoSheet from "../components/PhotoSheet";
 import { shrink } from "../imageTools";
 
 export default function AccountScreen({ navigation }) {
-  const { user, signOut, updateName, changePhoto, removePhoto } = useAuth();
+  const { user, signOut, updateName, changePhoto, removePhoto, signInWithGoogle } = useAuth();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,6 +28,18 @@ export default function AccountScreen({ navigation }) {
   const [removing, setRemoving] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
+
+  const isGuest = !!user?.is_guest;
+  const [upgrading, setUpgrading] = useState(false);
+  const [guestError, setGuestError] = useState("");
+
+  async function upgrade() {
+    setUpgrading(true);
+    setGuestError("");
+    const result = await signInWithGoogle();
+    if (!result.ok && !result.cancelled) setGuestError(result.error);
+    setUpgrading(false);
+  }
 
   async function pickPhoto(fromCamera) {
     setSheet(false);
@@ -100,8 +113,31 @@ export default function AccountScreen({ navigation }) {
             </View>
             {photoError ? <Text style={styles.photoError}>{photoError}</Text> : null}
             <Text style={styles.name}>{user?.display_name}</Text>
-            <Text style={styles.email}>{user?.email}</Text>
+            <Text style={styles.email}>{isGuest ? "Guest Account" : user?.email}</Text>
           </View>
+
+          {isGuest ? (
+            <View style={styles.guestCard}>
+              <Text style={styles.guestTitle}>You're using a guest account</Text>
+              <Text style={styles.guestBody}>
+                Your rankings are removed when you log out, or after 30 days. Sign in with Google to keep them.
+              </Text>
+              {guestError ? <Text style={styles.photoError}>{guestError}</Text> : null}
+              <Pressable style={styles.guestButton} onPress={upgrade} disabled={upgrading}>
+                {upgrading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={18} color="#fff" />
+                    <Text style={styles.guestButtonText}>Sign in with Google to keep it</Text>
+                  </>
+                )}
+              </Pressable>
+              <Text style={styles.guestHint}>
+                If that Google account already exists, you'll switch to it and this guest data is removed.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Pressable style={styles.rowHead} onPress={toggle}>
@@ -140,9 +176,11 @@ export default function AccountScreen({ navigation }) {
           </View>
         </View>
 
-        <Pressable style={styles.deleteLink} onPress={() => navigation.navigate("DeleteAccount")}>
-          <Text style={styles.deleteLinkText}>Delete account</Text>
-        </Pressable>
+        {!isGuest ? (
+          <Pressable style={styles.deleteLink} onPress={() => navigation.navigate("DeleteAccount")}>
+            <Text style={styles.deleteLinkText}>Delete account</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <PhotoSheet
@@ -164,9 +202,13 @@ export default function AccountScreen({ navigation }) {
 
       <ConfirmModal
         visible={loggingOut}
-        title="Log out?"
-        message="You'll sign in with Google again to see your rankings."
-        confirmText="Log out"
+        title={isGuest ? "Log out of the guest account?" : "Log out?"}
+        message={
+          isGuest
+            ? "This deletes your guest account and everything in it. Sign in with Google first to keep it."
+            : "You'll sign in with Google again to see your rankings."
+        }
+        confirmText={isGuest ? "Delete and log out" : "Log out"}
         onConfirm={() => { setLoggingOut(false); signOut(); }}
         onCancel={() => setLoggingOut(false)}
       />
@@ -207,4 +249,13 @@ const styles = StyleSheet.create({
   saveText: { color: "#fff", fontSize: 14 },
   deleteLink: { alignSelf: "center", paddingVertical: 14, paddingHorizontal: 20, marginTop: 40 },
   deleteLinkText: { fontSize: 13, color: "#A32D2D" },
+  guestCard: { backgroundColor: "#FFF3E6", borderRadius: 16, padding: 16, marginBottom: 14 },
+  guestTitle: { fontSize: 15, fontWeight: "500", color: "#2B2622" },
+  guestBody: { fontSize: 13, color: "#6B6054", marginTop: 4, lineHeight: 18 },
+  guestButton: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "#D9774F", borderRadius: 22, height: 44, marginTop: 12,
+  },
+  guestButtonText: { color: "#fff", fontSize: 14, fontWeight: "500" },
+  guestHint: { fontSize: 11, color: "#8C8073", marginTop: 8, lineHeight: 15 },
 });

@@ -13,6 +13,10 @@ export function getAuthHeader() {
   return token ? { Authorization: `Token ${token}` } : {};
 }
 
+export function getToken() {
+  return token;
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function authFetch(url, options = {}, retry = true) {
