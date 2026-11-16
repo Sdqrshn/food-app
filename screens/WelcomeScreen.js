@@ -97,7 +97,6 @@ const styles = StyleSheet.create({
   page: { flexGrow: 1, padding: 24, paddingTop: 70, paddingBottom: 40 },
   kicker: { fontSize: 13, color: "#A6492F", fontWeight: "500", letterSpacing: 0.5 },
   title: { fontSize: 32, fontWeight: "500", color: "#2B2622", marginTop: 4 },
-  sub: { fontSize: 14, color: "#6B6054", marginTop: 6, lineHeight: 20 },
   avatarWrap: { alignItems: "center", marginVertical: 26 },
   card: { backgroundColor: "#FFFBF3", borderRadius: 18, padding: 16 },
   label: { fontSize: 12, color: "#6B6054", marginBottom: 4, marginLeft: 2 },
@@ -110,7 +109,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFE7D6", borderRadius: 12, paddingHorizontal: 12, height: 44,
   },
   readonlyText: { fontSize: 15, color: "#6B6054", flex: 1 },
-  hint: { fontSize: 11, color: "#8C8073", marginTop: 6, marginLeft: 2 },
   error: { color: "#A32D2D", fontSize: 12, marginTop: 10, textAlign: "center" },
   button: {
     backgroundColor: "#D9774F", borderRadius: 24, height: 50, alignItems: "center",

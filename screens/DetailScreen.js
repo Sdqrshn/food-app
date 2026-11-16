@@ -264,15 +264,6 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: "#D9774F", borderRadius: 22, paddingVertical: 11, alignItems: "center",
   },
   primaryText: { color: "#fff", fontSize: 15 },
-  outline: {
-    borderWidth: 1, borderColor: "#CDBFA6", borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10,
-  },
-  outlineText: { color: "#2B2622", fontSize: 14 },
-  deleteBtn: {
-    borderWidth: 1, borderColor: "#E6B8B1", borderRadius: 20, paddingHorizontal: 14,
-    paddingVertical: 10, marginLeft: 8,
-  },
-  deleteText: { color: "#A32D2D", fontSize: 14 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   menu: {
     position: "absolute", top: 96, right: 20, minWidth: 150, backgroundColor: "#FFFBF3", borderRadius: 14,

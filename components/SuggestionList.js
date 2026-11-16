@@ -67,10 +67,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, color: "#2B2622" },
   hit: { fontWeight: "700", color: "#A6492F" },
   sub: { fontSize: 12, color: "#6B6054", marginTop: 1 },
-  badge: {
-    fontSize: 10, color: "#27500A", backgroundColor: "#E6EFDD", borderRadius: 8,
-    paddingHorizontal: 7, paddingVertical: 2, overflow: "hidden",
-  },
   footer: { backgroundColor: "#FBF3E2" },
   footerText: { fontSize: 13, color: "#A6492F" },
 });

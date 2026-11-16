@@ -383,20 +383,6 @@ const styles = StyleSheet.create({
   twoCol: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
   error: { color: "#A32D2D", fontSize: 12, marginTop: 3, marginLeft: 2 },
-  suggestions: {
-    backgroundColor: "#FFFBF3", borderRadius: 14, borderWidth: 1, borderColor: "#D6C9B0",
-    marginTop: -4, marginBottom: 12, overflow: "hidden",
-  },
-  suggestion: { paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 0.5, borderBottomColor: "#EFE6D3" },
-  sugName: { fontSize: 14, fontWeight: "500", color: "#2B2622" },
-  sugAddr: { fontSize: 12, color: "#6B6054" },
-  sugGoogle: { fontSize: 13, color: "#A6492F" },
-  linked: {
-    flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 10,
-    backgroundColor: "#E6EFDD", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4,
-    marginTop: -4, marginBottom: 12,
-  },
-  linkedText: { fontSize: 12, color: "#27500A" },
   save: { backgroundColor: "#D9774F", borderRadius: 22, paddingVertical: 12, alignItems: "center", marginTop: 8 },
   saveText: { color: "#fff", fontSize: 15 },
 });

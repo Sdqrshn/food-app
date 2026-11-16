@@ -439,7 +439,6 @@ const styles = StyleSheet.create({
     borderRadius: 22, paddingHorizontal: 22, paddingVertical: 11,
   },
   rearrangeActions: { flexDirection: "row", alignItems: "center", gap: 18 },
-  rearrangeCancel: { fontSize: 14, color: "#6B6054" },
   addText: { color: "#fff", fontSize: 15 },
   pillOutline: {
     backgroundColor: "#FFFBF3", borderWidth: 1, borderColor: "#D6C9B0", borderRadius: 18,
