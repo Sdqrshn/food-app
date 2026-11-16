@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View, Keyboard, Platform } from "react-native";
+import { Pressable, StyleSheet, View, Keyboard, Platform } from "react-native";
 import Animated, {
   Easing, Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle,
   useSharedValue, withSpring, withTiming,
