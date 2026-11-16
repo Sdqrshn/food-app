@@ -4,7 +4,6 @@ import {
   StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../AuthContext";
 import { PLACEHOLDER } from "../config";
@@ -12,10 +11,10 @@ import Texture from "../components/Texture";
 import ConfirmModal from "../components/ConfirmModal";
 import Avatar from "../components/Avatar";
 import PhotoSheet from "../components/PhotoSheet";
-import { shrink } from "../imageTools";
+import usePhotoActions from "../components/usePhotoActions";
 
 export default function AccountScreen({ navigation }) {
-  const { user, signOut, updateName, changePhoto, removePhoto, signInWithGoogle } = useAuth();
+  const { user, signOut, updateName, signInWithGoogle } = useAuth();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -24,10 +23,7 @@ export default function AccountScreen({ navigation }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const [sheet, setSheet] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoError, setPhotoError] = useState("");
+  const photo = usePhotoActions();
 
   const isGuest = !!user?.is_guest;
   const [upgrading, setUpgrading] = useState(false);
@@ -39,35 +35,6 @@ export default function AccountScreen({ navigation }) {
     const result = await signInWithGoogle();
     if (!result.ok && !result.cancelled) setGuestError(result.error);
     setUpgrading(false);
-  }
-
-  async function pickPhoto(fromCamera) {
-    setSheet(false);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setPhotoError("");
-    const options = { allowsEditing: true, aspect: [1, 1], quality: 0.8 };
-    let result;
-    if (fromCamera) {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) return setPhotoError("Camera permission is needed");
-      result = await ImagePicker.launchCameraAsync(options);
-    } else {
-      result = await ImagePicker.launchImageLibraryAsync({ ...options, mediaTypes: ["images"] });
-    }
-    if (result.canceled) return;
-    setPhotoBusy(true);
-    const small = await shrink(result.assets[0], 512);
-    const done = await changePhoto(small);
-    setPhotoBusy(false);
-    if (!done.ok) setPhotoError("Could not update your photo. Try again.");
-  }
-
-  async function confirmRemove() {
-    setRemoving(false);
-    setPhotoBusy(true);
-    const done = await removePhoto();
-    setPhotoBusy(false);
-    if (!done.ok) setPhotoError("Could not remove your photo. Try again.");
   }
 
   function toggle() {
@@ -109,9 +76,9 @@ export default function AccountScreen({ navigation }) {
 
           <View style={styles.profile}>
             <View style={styles.avatarWrap}>
-              <Avatar user={user} size={96} pencil busy={photoBusy} onPress={() => setSheet(true)} />
+              <Avatar user={user} size={96} pencil busy={photo.busy} onPress={() => photo.setSheet(true)} />
             </View>
-            {photoError ? <Text style={styles.photoError}>{photoError}</Text> : null}
+            {photo.error ? <Text style={styles.photoError}>{photo.error}</Text> : null}
             <Text style={styles.name}>{user?.display_name}</Text>
             <Text style={styles.email}>{isGuest ? "Guest Account" : user?.email}</Text>
           </View>
@@ -184,20 +151,20 @@ export default function AccountScreen({ navigation }) {
       </ScrollView>
 
       <PhotoSheet
-        visible={sheet}
+        visible={photo.sheet}
         hasPhoto={!!user?.photo}
-        onCamera={() => pickPhoto(true)}
-        onGallery={() => pickPhoto(false)}
-        onRemove={() => { setSheet(false); setRemoving(true); }}
-        onClose={() => setSheet(false)}
+        onCamera={() => photo.pick(true)}
+        onGallery={() => photo.pick(false)}
+        onRemove={() => { photo.setSheet(false); photo.setRemoving(true); }}
+        onClose={() => photo.setSheet(false)}
       />
       <ConfirmModal
-        visible={removing}
+        visible={photo.removing}
         title="Remove photo?"
         message="Your profile will show a letter instead."
         confirmText="Remove"
-        onConfirm={confirmRemove}
-        onCancel={() => setRemoving(false)}
+        onConfirm={photo.confirmRemove}
+        onCancel={() => photo.setRemoving(false)}
       />
 
       <ConfirmModal
