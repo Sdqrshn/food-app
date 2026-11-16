@@ -4,7 +4,7 @@ import ReAnimated, { useAnimatedRef } from "react-native-reanimated";
 import Sortable from "react-native-sortables";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Animated, Image, BackHandler, RefreshControl, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Image, BackHandler, RefreshControl, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { API, COLORS, PLACEHOLDER } from "../config";
 import Texture from "../components/Texture";
