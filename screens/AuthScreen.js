@@ -47,7 +47,6 @@ export default function AuthScreen() {
             <Text style={styles.guestText}>Continue as guest</Text>
           )}
         </Pressable>
-        <Text style={styles.note}>Guest data is removed when you log out.</Text>
       </View>
     </View>
   );
@@ -68,5 +67,4 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, color: "#2B2622", fontWeight: "500" },
   guest: { alignItems: "center", justifyContent: "center", height: 48, marginTop: 6 },
   guestText: { fontSize: 15, color: "#A6492F" },
-  note: { fontSize: 12, color: "#8C8073", textAlign: "center", marginTop: 4 },
 });

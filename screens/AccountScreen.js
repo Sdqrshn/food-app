@@ -100,9 +100,6 @@ export default function AccountScreen({ navigation }) {
                   </>
                 )}
               </Pressable>
-              <Text style={styles.guestHint}>
-                If that Google account already exists, you'll switch to it and this guest data is removed.
-              </Text>
             </View>
           ) : null}
 
@@ -224,5 +221,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#D9774F", borderRadius: 22, height: 44, marginTop: 12,
   },
   guestButtonText: { color: "#fff", fontSize: 14, fontWeight: "500" },
-  guestHint: { fontSize: 11, color: "#8C8073", marginTop: 8, lineHeight: 15 },
 });
